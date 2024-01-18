@@ -102,7 +102,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         Utils.SigScan(sigs.GetPakSigningKeys, "GetSigningKeysPtr", address =>
         {
             var funcAddress = Utils.GetGlobalAddress(address + 1);
-            Utils.LogDebug($"Found GetSigningKeysPtr at 0x{funcAddress:X}");
+            Utils.LogDebug($"Found GetSigningKeys at 0x{funcAddress:X}");
             _getSigningKeysHook = _hooks.CreateHook<GetPakSigningKeysDelegate>(GetPakSigningKeys, (long)funcAddress).Activate();
         });
     }
