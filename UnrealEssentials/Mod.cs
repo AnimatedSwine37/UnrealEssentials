@@ -109,6 +109,10 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
     private FPakSigningKeys* GetPakSigningKeys()
     {
+        // Ensure it's still a dummy key
+        // Hi-Fi Rush is special and overwrites it with the actual key at some point lol
+        _signingKeys->Function = 0;
+        _signingKeys->Size = 0;
         return _signingKeys;
     }
 
