@@ -69,33 +69,26 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         // Get game name
         var CurrentProcess = Process.GetCurrentProcess();
         var mainModule = CurrentProcess.MainModule;
-        var fileName = Path.GetFileName(mainModule!.FileName);
 
         // Get Signatures
-        if (!Signatures.VersionSigs.TryGetValue(fileName, out var sigs))
+        var scanner = new Scanner(CurrentProcess, mainModule);
+        var res = scanner.FindPattern("2B 00 2B 00 55 00 45 00 34 00 2B 00"); // ++UE4+
+        if (!res.Found)
         {
-            var scanner = new Scanner(CurrentProcess, mainModule);
-            var res = scanner.FindPattern("BD 04 EF FE");
+            res = scanner.FindPattern("2B 00 2B 00 75 00 65 00 34 00 2B 00"); // ++ue4+
             if (!res.Found)
             {
-                throw new Exception($"Unable to find Unreal Engine version number for {fileName}." +
-                    $"\nPlease report this!");
-            }
-
-            var versionAddr = res.Offset + Utils.BaseAddress + 8;
-            short minor = *((short*)versionAddr);
-            short major = *((short*)versionAddr + 1);
-            var ueVersion = $"{major}.{minor}";
-            Utils.Log($"Unreal Engine version is {ueVersion}");
-            if (!Signatures.VersionSigs.TryGetValue(ueVersion, out sigs))
-            {
-                throw new Exception($"Unable to find signatures for {fileName}, Unreal Engine version {ueVersion}." +
+                throw new Exception($"Unable to find Unreal Engine version number." +
                     $"\nPlease report this!");
             }
         }
-        else
+
+        string branch = Marshal.PtrToStringUni(res.Offset + Utils.BaseAddress)!;
+        Utils.Log($"Unreal Engine branch is {branch}");
+        if (!Signatures.VersionSigs.TryGetValue(branch, out var sigs))
         {
-            Utils.Log($"Using special Unreal Engine signatures for {fileName}");
+            throw new Exception($"Unable to find signatures for Unreal Engine branch {branch}." +
+                $"\nPlease report this!");
         }
 
         // Remove utoc signing

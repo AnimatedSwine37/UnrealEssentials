@@ -6,21 +6,35 @@ internal struct Signatures
     internal static Dictionary<string, Signatures> VersionSigs = new()
     {
         {
-            "4.25",
+            "++UE4+Release-4.25", // 4.25
+            new Signatures
+            {
+                GetPakSigningKeys = "E8 ?? ?? ?? ?? 44 39 60 ?? 74 ?? 48 8B 08 48 85 C9"
+            }
+        },
+        {
+            "++UE4+Release-4.25Plus M3", // Scarlet Nexus
             new Signatures
             {
                 GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??"
             }
         },
         {
-            "4.27",
+            "++UE4+Release-4.26", // 4.26
+            new Signatures
+            {
+                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??"
+            }
+        },
+        {
+            "++UE4+Release-4.27", // 4.27
             new Signatures
             {
                 GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F8 39 70 ??"
             }
         },
         {
-            "Hi-Fi-RUSH.exe",
+            "++ue4+hibiki_patch+4.27hbk", // Hi-Fi Rush
             new Signatures
             {
                 GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F0 44 39 78 ??"
