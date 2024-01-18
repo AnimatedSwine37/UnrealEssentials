@@ -20,7 +20,7 @@ internal struct Signatures
             }
         },
         {
-            "Hi-Fi RUSH.exe",
+            "Hi-Fi-RUSH.exe",
             new Signatures
             {
                 GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F0 44 39 78 ??"
