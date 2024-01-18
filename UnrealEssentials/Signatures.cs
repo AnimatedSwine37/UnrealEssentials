@@ -9,7 +9,7 @@ internal struct Signatures
             "++UE4+Release-4.25", // 4.25
             new Signatures
             {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 44 39 60 ?? 74 ?? 48 8B 08 48 85 C9"
+                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??"
             }
         },
         {
