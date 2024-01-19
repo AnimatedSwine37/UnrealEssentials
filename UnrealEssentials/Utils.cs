@@ -3,9 +3,10 @@ using Reloaded.Mod.Interfaces;
 using System.Diagnostics;
 using System.Text;
 using UnrealEssentials.Configuration;
+using static UnrealEssentials.Unreal.Native;
 
 namespace UnrealEssentials;
-internal class Utils
+internal unsafe class Utils
 {
     private static ILogger _logger;
     private static Config _config;
@@ -27,7 +28,6 @@ internal class Utils
         }
 
         return true;
-
     }
 
     internal static void LogDebug(string message)

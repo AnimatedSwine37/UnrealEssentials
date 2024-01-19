@@ -1,13 +1,15 @@
 ﻿using Reloaded.Hooks.Definitions;
-using Reloaded.Hooks.ReloadedII.Interfaces;
 using Reloaded.Memory.Sigscan;
 using Reloaded.Mod.Interfaces;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using UnrealEssentials.Configuration;
 using UnrealEssentials.Template;
-using static UnrealEssentials.Native;
+using static UnrealEssentials.Unreal.Native;
+using static UnrealEssentials.Utils;
+using static UnrealEssentials.Unreal.UnrealMemory;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
+using Reloaded.Mod.Interfaces.Internal;
 
 namespace UnrealEssentials;
 /// <summary>
@@ -48,7 +50,10 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private readonly IModConfig _modConfig;
 
     private IHook<GetPakSigningKeysDelegate> _getSigningKeysHook;
+    private IHook<GetPakFoldersDelegate> _getPakFoldersHook;
     private FPakSigningKeys* _signingKeys;
+
+    private List<string> _pakFolders = new();
 
     public Mod(ModContext context)
     {
@@ -59,7 +64,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         _configuration = context.Configuration;
         _modConfig = context.ModConfig;
 
-        Utils.Initialise(_logger, _configuration, _modLoader);
+        Initialise(_logger, _configuration, _modLoader);
 
         // Setup empty signing keys
         _signingKeys = (FPakSigningKeys*)NativeMemory.Alloc((nuint)sizeof(FPakSigningKeys));
@@ -83,21 +88,42 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             }
         }
 
-        string branch = Marshal.PtrToStringUni(res.Offset + Utils.BaseAddress)!;
-        Utils.Log($"Unreal Engine branch is {branch}");
+        string branch = Marshal.PtrToStringUni(res.Offset + BaseAddress)!;
+        Log($"Unreal Engine branch is {branch}");
         if (!Signatures.VersionSigs.TryGetValue(branch, out var sigs))
         {
             throw new Exception($"Unable to find signatures for Unreal Engine branch {branch}." +
                 $"\nPlease report this!");
         }
 
+        InitialiseGMalloc(sigs.GMalloc, _hooks);
+
         // Remove utoc signing
-        Utils.SigScan(sigs.GetPakSigningKeys, "GetSigningKeysPtr", address =>
+        SigScan(sigs.GetPakSigningKeys, "GetSigningKeysPtr", address =>
         {
-            var funcAddress = Utils.GetGlobalAddress(address + 1);
-            Utils.LogDebug($"Found GetSigningKeys at 0x{funcAddress:X}");
+            var funcAddress = GetGlobalAddress(address + 1);
+            LogDebug($"Found GetSigningKeys at 0x{funcAddress:X}");
             _getSigningKeysHook = _hooks.CreateHook<GetPakSigningKeysDelegate>(GetPakSigningKeys, (long)funcAddress).Activate();
         });
+
+        // Load files from our mod
+        SigScan(sigs.GetPakFolders, "GetPakFolders", address =>
+        {
+            _getPakFoldersHook = _hooks.CreateHook<GetPakFoldersDelegate>(GetPakFolders, address).Activate();
+        });
+
+        // Gather pak files from mods
+        _modLoader.ModLoading += ModLoading;
+    }
+
+    private void ModLoading(IModV1 mod, IModConfigV1 modConfig)
+    {
+        if (modConfig.ModDependencies.Contains(_modConfig.ModId))
+        {
+            var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal");
+            _pakFolders.Add(modsPath);
+            Log($"Loading files from {modsPath}");
+        }
     }
 
     private FPakSigningKeys* GetPakSigningKeys()
@@ -108,6 +134,18 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         _signingKeys->Size = 0;
         return _signingKeys;
     }
+
+    private void GetPakFolders(nuint cmdLine, TArray<FString>* outPakFolders)
+    {
+        _getPakFoldersHook.OriginalFunction(cmdLine, outPakFolders);
+        // Add files from mods
+        foreach(var pakFolder in _pakFolders)
+        {
+            var str = new FString(pakFolder);
+            outPakFolders->Add(str);
+        }
+    }
+
 
     #region Standard Overrides
     public override void ConfigurationUpdated(Config configuration)
