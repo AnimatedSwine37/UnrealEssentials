@@ -138,6 +138,13 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private void GetPakFolders(nuint cmdLine, TArray<FString>* outPakFolders)
     {
         _getPakFoldersHook.OriginalFunction(cmdLine, outPakFolders);
+
+        // Resize the array
+        if(outPakFolders->Capacity <= _pakFolders.Count + outPakFolders->Length)
+        {
+            outPakFolders->Resize(_pakFolders.Count + outPakFolders->Length);
+        }
+
         // Add files from mods
         foreach(var pakFolder in _pakFolders)
         {

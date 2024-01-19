@@ -27,10 +27,14 @@ internal unsafe class Native
                 return;
             }
 
-            Length++; Capacity++;
-            Values = (T*)Realloc(Values, (nuint)(sizeof(T) * Length));
+            Resize(Capacity + 1);
+            Values[Length++] = value;
+        }
 
-            Values[Length - 1] = value;
+        internal void Resize(int newCapcity)
+        {
+            Values = (T*)Realloc(Values, (nuint)(sizeof(T) * newCapcity));
+            Capacity = newCapcity;
         }
     }
 
