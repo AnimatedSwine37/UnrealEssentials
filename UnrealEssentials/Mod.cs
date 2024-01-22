@@ -55,10 +55,17 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private IHook<GetPakFoldersDelegate> _getPakFoldersHook;
     private FPakSigningKeys* _signingKeys;
 
+    // For testing with Scarlet Nexus 
+    // TODO either remove this or add signatures for other unreal versions
+    private IHook<IoDispatcherMountDelegate> _mountUtocHook;
+    private IHook<PakPlatformFileMountDelegate> _mountPakHook;
+    private IHook<FindAllPakFilesDelegate> _findAllPakFilesHook;
+
     private List<string> _pakFolders = new();
 
     public Mod(ModContext context)
     {
+        //Debugger.Launch();
         _modLoader = context.ModLoader;
         _hooks = context.Hooks;
         _logger = context.Logger;
@@ -114,8 +121,38 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             _getPakFoldersHook = _hooks.CreateHook<GetPakFoldersDelegate>(GetPakFolders, address).Activate();
         });
 
+        // Log mounting (for testing)
+        //SigScan("40 53 41 56 41 57 48 81 EC 70 01 00 00", "FIoDispatcherImpl::Mount", address =>
+        //{
+        //    _mountUtocHook = _hooks.CreateHook<IoDispatcherMountDelegate>(MountUtoc, address).Activate();
+        //});
+
+        //SigScan("40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC 28 02 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ??", "FPakPlatformFile::Mount", address =>
+        //{
+        //    _mountPakHook = _hooks.CreateHook<PakPlatformFileMountDelegate>(MountPak, address).Activate();
+        //});
+
+        //SigScan("48 8B C4 4C 89 40 ?? 53 55 56 57 48 83 EC 58", "FindAllPakFiles", address =>
+        //{
+        //    _findAllPakFilesHook = _hooks.CreateHook<FindAllPakFilesDelegate>(FindAllPakFiles, address).Activate();
+        //});
+
         // Gather pak files from mods
         _modLoader.ModLoading += ModLoading;
+    }
+
+    private void FindAllPakFiles(nuint LowerLevelFile, TArray<FString>* PakFolders, FString* WildCard, TArray<FString>* OutPakFiles)
+    {
+        LogDebug($"Searching for pak files in folders:\n{string.Join('\n', *PakFolders)}");
+        _findAllPakFilesHook.OriginalFunction(LowerLevelFile, PakFolders, WildCard, OutPakFiles);
+        LogDebug($"Found pak files:\n{string.Join('\n', *OutPakFiles)}");
+    }
+
+    private bool MountPak(nuint thisPtr, char* InPakFilename, int PakOrder, char* InPath, bool bLoadIndex)
+    {
+        var pakName = Marshal.PtrToStringUni((nint)InPakFilename);
+        LogDebug($"Mounting PAK {pakName} with initial priority {PakOrder}");
+        return _mountPakHook.OriginalFunction(thisPtr, InPakFilename, PakOrder, InPath, bLoadIndex);
     }
 
     private void ModLoading(IModV1 mod, IModConfigV1 modConfig)
@@ -126,6 +163,12 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             _pakFolders.Add(modsPath);
             Log($"Loading files from {modsPath}");
         }
+    }
+
+    private nuint MountUtoc(nuint thisPtr, nuint status, FIoStoreEnvironment* environment)
+    {
+        LogDebug($"Mounting UTOC {environment->Path} with {environment->Order} priority");
+        return _mountUtocHook.OriginalFunction(thisPtr, status, environment);
     }
 
     private FPakSigningKeys* GetPakSigningKeys()
