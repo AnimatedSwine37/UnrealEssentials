@@ -44,11 +44,14 @@ internal unsafe class Native
 
         internal FString(string str)
         {
+            if(!str.EndsWith('\0'))
+                str += '\0';
+
             Data = new TArray<char>();
-            Data.Capacity = str.Length * sizeof(char);
+            Data.Capacity = str.Length;
             Data.Length = Data.Capacity;
 
-            char* chars = (char*)Malloc((nuint)Data.Length);
+            char* chars = (char*)Malloc((nuint)Data.Length * sizeof(char));
             for (int i = 0; i < str.Length; i++)
                 chars[i] = str[i];
             Data.Values = chars;
