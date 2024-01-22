@@ -8,6 +8,8 @@ using UnrealEssentials.Template;
 using static UnrealEssentials.Unreal.Native;
 using static UnrealEssentials.Utils;
 using static UnrealEssentials.Unreal.UnrealMemory;
+using static UnrealEssentials.Unreal.UnrealString;
+using static UnrealEssentials.Unreal.UnrealArray;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 using Reloaded.Mod.Interfaces.Internal;
 
