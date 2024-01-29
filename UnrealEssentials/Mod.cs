@@ -207,7 +207,10 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private nuint PakOpenRead(nuint thisPtr, nint fileNamePtr, bool bAllowWrite)
     {
         var fileName = Marshal.PtrToStringUni(fileNamePtr);
-        LogDebug($"Trying to open {fileName}");
+        if(_configuration.FileAccessLog)
+        {
+            Log($"Opening {fileName}");
+        }
         
         // No loose file, vanilla behaviour
         if(!TryFindLooseFile(fileName, out var looseFile))
