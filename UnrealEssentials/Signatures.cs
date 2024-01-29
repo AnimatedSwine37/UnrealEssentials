@@ -4,6 +4,7 @@ internal struct Signatures
     internal string GetPakSigningKeys { get; set; }
     internal string GetPakFolders { get; set; }
     internal string GMalloc { get; set; }
+    internal string GetPakOrder { get; set; }
 
     internal static Dictionary<string, Signatures> VersionSigs = new()
     {
@@ -14,6 +15,7 @@ internal struct Signatures
                 GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??",
                 GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
                 GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ??",
+                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ??",
             }
         },
         {
@@ -39,9 +41,9 @@ internal struct Signatures
                 GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??",
                 GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
                 GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ??",
+                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ??",
             }
         },
-
         {
             "Hi-Fi-RUSH.exe", // Hi-Fi Rush (Modified 4.27)
             new Signatures

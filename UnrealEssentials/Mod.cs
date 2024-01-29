@@ -53,7 +53,9 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
     private IHook<GetPakSigningKeysDelegate> _getSigningKeysHook;
     private IHook<GetPakFoldersDelegate> _getPakFoldersHook;
+    private IHook<GetPakOrderDelegate> _getPakOrderHook;
     private FPakSigningKeys* _signingKeys;
+    private string _modsPath;
 
     // For testing with Scarlet Nexus 
     // TODO either remove this or add signatures for other unreal versions
@@ -80,6 +82,10 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         _signingKeys->Function = 0;
         _signingKeys->Size = 0;
 
+        // Setup mods path
+        var modPath = new DirectoryInfo(_modLoader.GetDirectoryForModId(_modConfig.ModId));
+        _modsPath = modPath.Parent!.FullName;
+
         // Get Signatures
         var sigs = GetSignatures();
 
@@ -98,6 +104,13 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         {
             _getPakFoldersHook = _hooks.CreateHook<GetPakFoldersDelegate>(GetPakFolders, address).Activate();
         });
+
+        // Fix priority
+        SigScan(sigs.GetPakOrder, "GetPakOrder", address =>
+        {
+            _getPakOrderHook = _hooks.CreateHook<GetPakOrderDelegate>(GetPakOrder, address).Activate();
+        });
+
 
         // Log mounting (for testing)
         //SigScan("40 53 41 56 41 57 48 81 EC 70 01 00 00", "FIoDispatcherImpl::Mount", address =>
@@ -158,6 +171,31 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         LogDebug($"Searching for pak files in folders:\n{string.Join('\n', *PakFolders)}");
         _findAllPakFilesHook.OriginalFunction(LowerLevelFile, PakFolders, WildCard, OutPakFiles);
         LogDebug($"Found pak files:\n{string.Join('\n', *OutPakFiles)}");
+    }
+
+    private int GetPakOrder(FString* PakFilePath)
+    {
+        // TODO write/copy Contains and StartsWith functions that use the FString* directly
+        // instead of making it a string each time (StartsWith is probably much more important)
+        var path = PakFilePath->ToString();
+
+        // A vanilla file, use normal order
+        if(!path.StartsWith(_modsPath))
+            return _getPakOrderHook.OriginalFunction(PakFilePath);
+        
+        // One of our files, override order
+        for(int i = 0; i < _pakFolders.Count; i++)
+        {
+            if (path.Contains(_pakFolders[i]))
+            {
+                LogDebug($"Set order of {path} to {(i+1)*1000}");
+                return (i + 1) * 10000;
+            }
+        }
+
+        // This shouldn't happen...
+        LogError($"Unable to decide order for {path}. This shouldn't happen!");
+        return 0;
     }
 
     private bool MountPak(nuint thisPtr, char* InPakFilename, int PakOrder, char* InPath, bool bLoadIndex)
