@@ -17,15 +17,6 @@ internal struct Signatures
             }
         },
         {
-            "++UE4+Release-4.25Plus M3", // Scarlet Nexus
-            new Signatures
-            {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
-                GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ??",
-            }
-        },
-        {
             "++UE4+Release-4.26", // 4.26
             new Signatures
             {
@@ -42,13 +33,32 @@ internal struct Signatures
             }
         },
         {
-            "++ue4+hibiki_patch+4.27hbk", // Hi-Fi Rush
+            "++UE4+Release-4.25Plus M3", // Scarlet Nexus (Modified 4.25+)
+            new Signatures
+            {
+                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??",
+                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
+                GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ??",
+            }
+        },
+
+        {
+            "Hi-Fi-RUSH.exe", // Hi-Fi Rush (Modified 4.27)
             new Signatures
             {
                 GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F0 44 39 78 ??",
                 GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 8D 4C 24 ??",
                 GMalloc = "48 8B 0D ?? ?? ?? ?? 48 85 C9 75 ?? E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B 01 48 8B D3 FF 50 ?? 48 83 C4 20"
             }
-        }
+        },
+        {
+            "Sackboy-Win64-Shipping.exe", // Sackboy: A Big Adventure (Modified 4.25)
+            new Signatures
+            {
+                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??",
+                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
+                GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ??",
+            }
+        } 
     };
 }

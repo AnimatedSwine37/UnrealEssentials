@@ -80,30 +80,8 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         _signingKeys->Function = 0;
         _signingKeys->Size = 0;
 
-        // Get game name
-        var CurrentProcess = Process.GetCurrentProcess();
-        var mainModule = CurrentProcess.MainModule;
-
         // Get Signatures
-        var scanner = new Scanner(CurrentProcess, mainModule);
-        var res = scanner.FindPattern("2B 00 2B 00 55 00 45 00 34 00 2B 00"); // ++UE4+
-        if (!res.Found)
-        {
-            res = scanner.FindPattern("2B 00 2B 00 75 00 65 00 34 00 2B 00"); // ++ue4+
-            if (!res.Found)
-            {
-                throw new Exception($"Unable to find Unreal Engine version number." +
-                    $"\nPlease report this!");
-            }
-        }
-
-        string branch = Marshal.PtrToStringUni(res.Offset + BaseAddress)!;
-        Log($"Unreal Engine branch is {branch}");
-        if (!Signatures.VersionSigs.TryGetValue(branch, out var sigs))
-        {
-            throw new Exception($"Unable to find signatures for Unreal Engine branch {branch}." +
-                $"\nPlease report this!");
-        }
+        var sigs = GetSignatures();
 
         InitialiseGMalloc(sigs.GMalloc, _hooks);
 
@@ -139,6 +117,40 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
         // Gather pak files from mods
         _modLoader.ModLoading += ModLoading;
+    }
+
+    private Signatures GetSignatures()
+    {
+        var CurrentProcess = Process.GetCurrentProcess();
+        var mainModule = CurrentProcess.MainModule;
+        var fileName = Path.GetFileName(mainModule!.FileName);
+
+        // Try and find based on file name
+        if (Signatures.VersionSigs.TryGetValue(fileName, out var sigs))
+            return sigs;
+
+        // Try and find based on branch name
+        var scanner = new Scanner(CurrentProcess, mainModule);
+        var res = scanner.FindPattern("2B 00 2B 00 55 00 45 00 34 00 2B 00"); // ++UE4+
+        if (!res.Found)
+        {
+            res = scanner.FindPattern("2B 00 2B 00 75 00 65 00 34 00 2B 00"); // ++ue4+
+            if (!res.Found)
+            {
+                throw new Exception($"Unable to find Unreal Engine version number." +
+                    $"\nPlease report this!");
+            }
+        }
+
+        string branch = Marshal.PtrToStringUni(res.Offset + BaseAddress)!;
+        Log($"Unreal Engine branch is {branch}");
+        if (!Signatures.VersionSigs.TryGetValue(branch, out sigs))
+        {
+            throw new Exception($"Unable to find signatures for Unreal Engine branch {branch}." +
+                $"\nPlease report this!");
+        }
+
+        return sigs;
     }
 
     private void FindAllPakFiles(nuint LowerLevelFile, TArray<FString>* PakFolders, FString* WildCard, TArray<FString>* OutPakFiles)
@@ -185,13 +197,13 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         _getPakFoldersHook.OriginalFunction(cmdLine, outPakFolders);
 
         // Resize the array
-        if(outPakFolders->Capacity <= _pakFolders.Count + outPakFolders->Length)
+        if (outPakFolders->Capacity <= _pakFolders.Count + outPakFolders->Length)
         {
             outPakFolders->Resize(_pakFolders.Count + outPakFolders->Length);
         }
 
         // Add files from mods
-        foreach(var pakFolder in _pakFolders)
+        foreach (var pakFolder in _pakFolders)
         {
             var str = new FString(pakFolder);
             outPakFolders->Add(str);
