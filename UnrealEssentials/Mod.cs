@@ -54,6 +54,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private IHook<GetPakSigningKeysDelegate> _getSigningKeysHook;
     private IHook<GetPakFoldersDelegate> _getPakFoldersHook;
     private IHook<GetPakOrderDelegate> _getPakOrderHook;
+    private IHook<PakOpenReadDelegate> _pakOpenReadHook;
     private FPakSigningKeys* _signingKeys;
     private string _modsPath;
 
@@ -111,6 +112,11 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             _getPakOrderHook = _hooks.CreateHook<GetPakOrderDelegate>(GetPakOrder, address).Activate();
         });
 
+        // Allow loose pak loading
+        SigScan(sigs.PakOpenRead, "PakOpenRead", address =>
+        {
+            _pakOpenReadHook = _hooks.CreateHook<PakOpenReadDelegate>(PakOpenRead, address).Activate();
+        });
 
         // Log mounting (for testing)
         //SigScan("40 53 41 56 41 57 48 81 EC 70 01 00 00", "FIoDispatcherImpl::Mount", address =>
@@ -196,6 +202,50 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         // This shouldn't happen...
         LogError($"Unable to decide order for {path}. This shouldn't happen!");
         return 0;
+    }
+
+    private nuint PakOpenRead(nuint thisPtr, nint fileNamePtr, bool bAllowWrite)
+    {
+        var fileName = Marshal.PtrToStringUni(fileNamePtr);
+        LogDebug($"Trying to open {fileName}");
+        
+        // No loose file, vanilla behaviour
+        if(!TryFindLooseFile(fileName, out var looseFile))
+            return _pakOpenReadHook.OriginalFunction(thisPtr, fileNamePtr, bAllowWrite);
+
+        // Get the pointer to the loose file that UE wants
+        Log($"Redirecting {fileName} to {looseFile}");
+        var looseFilePtr = Marshal.StringToHGlobalUni(looseFile);
+        var res = _pakOpenReadHook.OriginalFunction(thisPtr, looseFilePtr, bAllowWrite);
+        
+        // Clean up
+        Marshal.FreeHGlobal(looseFilePtr); 
+        return res;
+    }
+
+    private bool TryFindLooseFile(string fullFilePath, out string looseFile)
+    {
+        // If it doesn't start with this it's presumably an absolute path so we're not changing it
+        // This is a bit jank, hopefully it work with all games :)
+        looseFile = "";
+        if (!fullFilePath.StartsWith(@"../../../"))
+            return false;
+
+        var filePath = fullFilePath.Substring(9); // Ignore the ../../../ which puts it to the root dir of the game
+
+        // Go in reverse order of mods so the lowest one in the list has highest priority
+        for(int i =  _pakFolders.Count - 1; i >= 0; i--)
+        {
+            var potentialPath = Path.Combine(_pakFolders[i], filePath);
+            if (File.Exists(potentialPath))
+            {
+                looseFile = potentialPath;
+                return true;
+            }
+        }
+
+        // We didn't find a loose file
+        return false;
     }
 
     private bool MountPak(nuint thisPtr, char* InPakFilename, int PakOrder, char* InPath, bool bLoadIndex)

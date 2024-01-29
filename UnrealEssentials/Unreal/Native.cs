@@ -26,4 +26,5 @@ internal unsafe class Native
     internal delegate bool PakPlatformFileMountDelegate(nuint thisPtr, char* InPakFilename, int PakOrder, char* InPath, bool bLoadIndex);
     internal delegate void FindAllPakFilesDelegate(nuint LowerLevelFile, TArray<FString>* PakFolders, FString* WildCard, TArray<FString>* OutPakFiles);
     internal delegate int GetPakOrderDelegate(FString* PakFilePath);
+    internal delegate nuint PakOpenReadDelegate(nuint thisPtr, nint fileNamePtr, bool bAllowWrite);
 }
