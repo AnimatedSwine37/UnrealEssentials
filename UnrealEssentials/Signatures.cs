@@ -35,7 +35,7 @@ internal struct Signatures
             }
         },
         {
-            "++UE4+Release-4.25Plus M3", // Scarlet Nexus (Modified 4.25+)
+            "ScarletNexus-Win64-Shipping.exe", // Scarlet Nexus (Modified 4.25+)
             new Signatures
             {
                 GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??",
