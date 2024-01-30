@@ -1,10 +1,10 @@
 [package]
 name = "fileemu-utoc-stream-emulator"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = [ "Rirurin" ]
 description = "Simulates Unreal Engine IO Store files. Allows mods to add or replace existing files using files on disk."
-repository = "https://github.com/Sewer56/FileEmulationFramework"
+repository = "https://github.com/AnimatedSwine37/UnrealEssentials/"
 license = "GPL-3.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -20,8 +20,9 @@ sha1 = { version = "0.10", optional = true }
 hash_meta = ["dep:sha1"]
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
+# remove these to clean up once ready to ship
 [lints.rust]
 unused_imports = "allow"
 unused_must_use = "allow"

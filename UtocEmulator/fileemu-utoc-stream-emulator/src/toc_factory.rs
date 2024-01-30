@@ -5,13 +5,14 @@ use std::{
     fs, fs::{DirEntry, File},
     io, io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
     mem,
-    rc::{Rc, Weak},
+    //rc::{Rc, Weak},
+    sync::{Arc, Mutex, MutexGuard, RwLock, Weak},
     time::Instant,
 };
 use crate::{
     asset_collector::{
         MOUNT_POINT, PROJECT_NAME, SUITABLE_FILE_EXTENSIONS, ROOT_DIRECTORY, 
-        TocDirectory, TocDirectoryRef, TocFile, TocFileRef},
+        TocDirectory, TocDirectorySyncRef, TocFile, TocFileSyncRef},
     io_package::{
         ContainerHeaderPackage,
         ExportBundle, ExportBundleHeader4,
@@ -29,19 +30,31 @@ use crate::{
     string::{FString32NoHash, FStringSerializer, FStringSerializerExpectedLength, Hasher, Hasher16}
 };
 
-pub const TOC_NAME:     &'static str = "UnrealEssentials_P";
-pub const TARGET_TOC:   &'static str = "UnrealEssentials_P.utoc";
-pub const TARGET_CAS:   &'static str = "UnrealEssentials_P.ucas";
+// Thanks to Swine's work, mod priority is now handled by UnrealEssentials, so there's no need for a _P patch name
+// WIP:
+//  - Implement proper unit testing for TOC building
+//  - More accurate TOC structure. Ideally match Unreal Engine's TOC generation 1:1, including
+//      - Sorting file entries within folders by file size
+//      - Using the default compression alignment for each version
+//      - Make the root mount folder have no name
+//      - (Still won't generate metas by default though, that takes too long)
+//  - Support for Type 1 (4.25) and Zen (5.0+) (currently only Type2 is supported (4.25+, 4.26, 4.27))
+//  - Include benchmarking and code coverage tools as per the Reloaded's Rust template - 
+//      https://github.com/Reloaded-Project/reloaded-templates-rust
+pub const TOC_NAME:     &'static str = "UnrealEssentials";
+pub const TARGET_TOC:   &'static str = "UnrealEssentials.utoc";
+pub const TARGET_CAS:   &'static str = "UnrealEssentials.ucas";
 
-pub static mut CONTAINER_ENTRIES_OSPATH_POOL: Option<Vec<String>> = None;
+pub static CONTAINER_ENTRIES_OSPATH_POOL: Mutex<Option<Vec<String>>> = Mutex::new(None);
 pub static mut CONTAINER_DATA: Option<ContainerData> = None;
 
 pub fn build_table_of_contents(toc_path: &str) -> Option<Vec<u8>> {
     let path_check = PathBuf::from(toc_path); // build TOC here
     let file_name = path_check.file_name().unwrap().to_str().unwrap(); // unwrap, this is a file
     if file_name == TARGET_TOC { // check that we're targeting the correct UTOC
-        match unsafe { &ROOT_DIRECTORY } {
-            Some(root) => Some(build_table_of_contents_inner(Rc::clone(root), toc_path)),
+        let root_dir_lock = ROOT_DIRECTORY.lock().unwrap();
+        match (*root_dir_lock).as_ref() {
+            Some(root) => Some(build_table_of_contents_inner(Arc::clone(root), toc_path)),
             None => {
                 println!("WARNING: No mod files were loaded for {}", file_name);
                 None
@@ -56,6 +69,7 @@ pub fn build_container_test(cas_path: &str) {
     use std::ffi::CStr;
     use byteorder::WriteBytesExt;
     let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+
     let container_data = unsafe { CONTAINER_DATA.as_ref().unwrap() };
     for i in &container_data.virtual_blocks {
         let file_name = unsafe { CStr::from_ptr(i.os_path as *const i8).to_str().unwrap() };
@@ -95,7 +109,7 @@ pub trait TocResolverCommon { // Currently for 4.25+, 4.26 and 4.27
     //type ContainerHeaderType: PackageIoSummaryDeserialize; // Container Header in UCAS
     fn new<THeaderType: IoStoreTocHeaderCommon>(toc_name: &str, project_name: &str, block_align: u32) -> impl TocResolverCommon;
 
-    fn flatten_toc_tree(&mut self, tracker: &mut TocFlattenTracker, root: TocDirectoryRef);
+    fn flatten_toc_tree(&mut self, tracker: &mut TocFlattenTracker, root: TocDirectorySyncRef);
 
     fn serialize<
         TSummary: PackageIoSummaryDeserialize,
@@ -194,8 +208,8 @@ impl TocResolverCommon for TocResolverType2 {
         }
     }
     // Flatten the tree of directories + files into a list of directories and list of files
-    fn flatten_toc_tree(&mut self, tracker: &mut TocFlattenTracker, root: TocDirectoryRef) {
-        self.directories = self.flatten_toc_tree_dir(tracker, Rc::clone(&root));
+    fn flatten_toc_tree(&mut self, tracker: &mut TocFlattenTracker, root: TocDirectorySyncRef) {
+        self.directories = self.flatten_toc_tree_dir(tracker, Arc::clone(&root));
     }
     fn serialize<
         TSummary: PackageIoSummaryDeserialize,
@@ -210,12 +224,15 @@ impl TocResolverCommon for TocResolverType2 {
         let mut toc_storage: CV = Cursor::new(vec![]); // TOC Storage gets stored as a MemoryStream
         // CAS storage will be a MultiStream of FileStreams with a MemoryStream of gaps between it
         // Set capacity so that vec doesn't realloc
-        unsafe { CONTAINER_ENTRIES_OSPATH_POOL = Some(Vec::with_capacity(self.files.len())); }
+        let mut container_string_pool = CONTAINER_ENTRIES_OSPATH_POOL.lock().unwrap();
+        *container_string_pool = Some(Vec::with_capacity(self.files.len()));
         let mut container_header = ContainerHeader::new(self.toc_name_hash);
         let mut container_data = ContainerData { header: vec![], virtual_blocks: vec![] };
         let file_count = self.files.len();
         for i in 0..self.files.len() {
-            container_data.virtual_blocks.push(self.serialize_entry::<TSummary>(i, &mut container_header));
+            container_data.virtual_blocks.push(self.serialize_entry::<TSummary>(
+                i, &mut container_header, &mut container_string_pool
+            ));
         }
         container_data.header = self.serialize_container_header::<EN>(&mut container_header);
         // Write our TOC
@@ -253,50 +270,50 @@ impl TocResolverType2 {
             },
         }) as u32
     }
-    fn flatten_toc_tree_dir(&mut self, tracker: &mut TocFlattenTracker, node: TocDirectoryRef) -> Vec<IoDirectoryIndexEntry> {
+    fn flatten_toc_tree_dir(&mut self, tracker: &mut TocFlattenTracker, node: TocDirectorySyncRef) -> Vec<IoDirectoryIndexEntry> {
         let mut values = vec![];
         let mut flat_value = IoDirectoryIndexEntry {
-            name: self.get_flat_string_index(tracker, &node.borrow().name),
+            name: self.get_flat_string_index(tracker, &node.read().unwrap().name),
             first_child: u32::MAX,
             next_sibling: u32::MAX,
             first_file: u32::MAX
         };
         // Iterate through each file
-        if TocDirectory::has_files(Rc::clone(&node)) {
-            let mut curr_file = Rc::clone(node.borrow().first_file.as_ref().unwrap());
+        if TocDirectory::has_files(Arc::clone(&node)) {
+            let mut curr_file = Arc::clone(node.read().unwrap().first_file.as_ref().unwrap());
             flat_value.first_file = tracker.resolved_files;
             loop {
                 let mut flat_file = IoFileIndexEntry {
-                    name: self.get_flat_string_index(tracker, &curr_file.borrow().name),
+                    name: self.get_flat_string_index(tracker, &curr_file.read().unwrap().name),
                     next_file: u32::MAX,
                     user_data: tracker.resolved_files,
-                    file_size: curr_file.borrow().file_size,
-                    os_path: curr_file.borrow().os_file_path.clone(),
+                    file_size: curr_file.read().unwrap().file_size,
+                    os_path: curr_file.read().unwrap().os_file_path.clone(),
                     hash_path: String::new()
 
                 };
                 // travel upwards through parents to build hash path
                 // calculate hash after validation so it's easier to remove incorrectly formatted uassets
                 let mut path_comps: Vec<String> = vec![];
-                let mut curr_parent = Rc::clone(&node);
+                let mut curr_parent = Arc::clone(&node);
                 loop {
-                    path_comps.insert(0, curr_parent.borrow().name.to_owned());
-                    match Rc::clone(&curr_parent).borrow().parent.upgrade() {
-                        Some(ip) => curr_parent = Rc::clone(&ip),
+                    path_comps.insert(0, curr_parent.read().unwrap().name.to_owned());
+                    match Arc::clone(&curr_parent).read().unwrap().parent.upgrade() {
+                        Some(ip) => curr_parent = Arc::clone(&ip),
                         None => break
                     }
                 }
-                let filename_buf = PathBuf::from(&curr_file.borrow().name);
+                let filename_buf = PathBuf::from(&curr_file.read().unwrap().name);
                 let path = path_comps.join("/") + "/" + filename_buf.file_stem().unwrap().to_str().unwrap();
                 //println!("{} PATH: {}, OS: {}", &curr_file.borrow().name, &path, &curr_file.borrow().os_file_path);
                 flat_file.hash_path = path;
                 // go to next file
                 tracker.resolved_files += 1;
-                match Rc::clone(&curr_file).borrow().next.as_ref() {
+                match Arc::clone(&curr_file).read().unwrap().next.as_ref() {
                     Some(next) => {
                         flat_file.next_file = tracker.resolved_files;
                         self.files.push(flat_file);
-                        curr_file = Rc::clone(next)
+                        curr_file = Arc::clone(next)
                     },
                     None => {
                         self.files.push(flat_file);
@@ -308,17 +325,17 @@ impl TocResolverType2 {
         // Iterate through inner directories
         tracker.resolved_directories += 1;
         //println!("flatten(): {}, id {}", &node.borrow().name, self.resolved_directories - 1);
-        if TocDirectory::has_children(Rc::clone(&node)) {
+        if TocDirectory::has_children(Arc::clone(&node)) {
             flat_value.first_child = tracker.resolved_directories;
             values.push(flat_value);
-            let mut curr_child = Rc::clone(node.borrow().first_child.as_ref().unwrap());
+            let mut curr_child = Arc::clone(node.read().unwrap().first_child.as_ref().unwrap());
             loop {
-                let mut children = self.flatten_toc_tree_dir(tracker, Rc::clone(&curr_child));
-                match Rc::clone(&curr_child).borrow().next_sibling.as_ref() { // get the next child (if they exist)
+                let mut children = self.flatten_toc_tree_dir(tracker, Arc::clone(&curr_child));
+                match Arc::clone(&curr_child).read().unwrap().next_sibling.as_ref() { // get the next child (if they exist)
                     Some(next) => {
                         children[0].next_sibling = tracker.resolved_directories;
                         values.extend(children);
-                        curr_child = Rc::clone(next);
+                        curr_child = Arc::clone(next);
                     },
                     None => {
                         values.extend(children);
@@ -356,15 +373,13 @@ impl TocResolverType2 {
         container_header
     }
 
-    fn serialize_entry<TSummary: PackageIoSummaryDeserialize>(&mut self, index: usize, container_header: &mut ContainerHeader) -> PartitionBlock {
+    fn serialize_entry<TSummary: PackageIoSummaryDeserialize>(&mut self, index: usize, container_header: &mut ContainerHeader, pool_guard: &mut MutexGuard<Option<Vec<String>>>) -> PartitionBlock {
         let target_file = &self.files[index];
         let generated_chunk_id = self.get_file_hash(target_file); // create the hash for the new file
-        //println!("Created chunk id from {}: {:?}", &target_file.hash_path, generated_chunk_id);
         self.chunk_ids.push(generated_chunk_id); // push once we're sure that the file's valid
         let curr_file = &self.files[index]; // Generate FIoOffsetAndLength
         let file_offset = self.compression_blocks.len() as u64 * self.compression_block_size as u64;
         let generated_offset_length = IoOffsetAndLength::new(file_offset, curr_file.file_size);
-        //println!("Created offset and length for {}: 0x{:X}, 0x{:X}", &curr_file.name, file_offset, curr_file.file_size);
         self.offsets_and_lengths.push(generated_offset_length);
         // Generate compression blocks
         self.compression_blocks.append(&mut TocResolverType2::create_compression_blocks(target_file.file_size, self.cas_pointer, self.compression_block_size));
@@ -379,9 +394,9 @@ impl TocResolverType2 {
                 self.chunk_ids[index].get_raw_hash(), curr_file.file_size
             ));
         }
-        // write into container data 
-        unsafe { CONTAINER_ENTRIES_OSPATH_POOL.as_mut().unwrap().push(target_file.os_path.to_owned() + "\0"); } // make C formatted string
-        let curr_ospath = unsafe { &CONTAINER_ENTRIES_OSPATH_POOL.as_ref().unwrap()[index] };
+        // write into container data
+        (**pool_guard).as_mut().unwrap().push(target_file.os_path.to_owned() + "\0"); // make C formatted string
+        let curr_ospath = &(**pool_guard).as_ref().unwrap()[index];
         let new_partition_block = PartitionBlock {
             os_path: curr_ospath.as_ptr(),
             start: self.cas_pointer,
@@ -413,13 +428,13 @@ impl TocResolverType2 {
 // TODO: Pass version param (probably as trait) to customize how TOC is produced depenending on the target version
 // TODO: Support UE5 (sometime soon)
 
-pub fn build_table_of_contents_inner(root: TocDirectoryRef, toc_path: &str) -> Vec<u8> {
+pub fn build_table_of_contents_inner(root: TocDirectorySyncRef, toc_path: &str) -> Vec<u8> {
     //println!("BUILD TABLE OF CONTENTS FOR {}", TARGET_TOC);
     let mut profiler = TocBuilderProfiler::new();
     let mut resolver = TocResolverType2::new::<
         IoStoreTocHeaderType2
     >(TARGET_TOC, PROJECT_NAME, DEFAULT_COMPRESSION_BLOCK_ALIGNMENT);
-    resolver.flatten_toc_tree(&mut TocFlattenTracker::new(), Rc::clone(&root));
+    resolver.flatten_toc_tree(&mut TocFlattenTracker::new(), Arc::clone(&root));
     let serialize_results = resolver.serialize::<PackageSummary2, IoStoreTocHeaderType3>(&mut profiler, toc_path);
     unsafe { CONTAINER_DATA = Some(serialize_results.1) };
     serialize_results.0

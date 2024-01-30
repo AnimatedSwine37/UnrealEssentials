@@ -26,6 +26,31 @@ pub unsafe extern "C" fn BuildTableOfContents(tocPath: *const c_char, settings: 
 
 #[no_mangle]
 #[allow(non_snake_case)]
+// haiiii Reloaded!!!! :3
+pub unsafe extern "C" fn BuildTableOfContentsEx(
+    // UTOC
+    tocPath: *const c_char, 
+    settings: *const u32,
+    settings_length: u32,
+    length: *mut u64,
+    // UCAS
+    blocks: *mut *const PartitionBlock,
+    blockCount: *mut usize,
+    header: *mut *const u8,
+    headerSize: *mut usize
+    ) -> *const u8 {
+    match toc_factory::build_table_of_contents(CStr::from_ptr(tocPath).to_str().unwrap()) {
+        Some(n) => {
+            *length = n.len() as u64; // set length parameter
+            n.leak().as_ptr() // leak memory lol
+        },
+        None => 0 as *const u8 // couldn't build toc, let C# side know with a null pointer
+    }
+}
+
+
+#[no_mangle]
+#[allow(non_snake_case)]
 pub unsafe extern "C" fn GetContainerBlocks(
     casPath: *const c_char, 
     blocks: *mut *const PartitionBlock, blockCount: *mut usize, 
@@ -44,12 +69,14 @@ pub unsafe extern "C" fn GetContainerBlocks(
     }
 }
 
+/* 
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn SafeToDropContainerMetadata() {
     CONTAINER_DATA = None;
     CONTAINER_ENTRIES_OSPATH_POOL = None;
 }
+*/
 
 #[no_mangle]
 #[allow(non_snake_case)]
