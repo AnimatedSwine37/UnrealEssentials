@@ -12,7 +12,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-
+using UnrealEssentials.Interfaces;
 using Strim = System.IO.Stream;
 
 namespace UTOC.Stream.Emulator
@@ -32,19 +32,14 @@ namespace UTOC.Stream.Emulator
         public static readonly string DumpFolderParent = "FEmulator-Dumps";
         public static readonly string DumpFolderToc = "UTOCEmulator";
         public static readonly int DefaultCompressionBlockAlignment = 0x800;
-        public static int TestInt = 0;
         public bool DumpFiles { get; set; }
         public Logger _logger { get; init; }
+
+        public TocType? TocType { get; set; }
 
         private readonly ConcurrentDictionary<string, Strim?> _pathToStream = new(StringComparer.OrdinalIgnoreCase);
 
         public bool CanDump { get; init; }
-
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall)} )]
-        public static void Test()
-        {
-            TestInt += 1;
-        }
 
         public UtocEmulator(Logger logger, bool canDump) { _logger = logger; CanDump = canDump; }
 
@@ -65,6 +60,7 @@ namespace UTOC.Stream.Emulator
         public bool TryCreateIoStoreTOC(string path, ref IEmulatedFile? emulated, out Strim? stream)
         {
             stream = null;
+            _logger.Info($"Using Toc version {TocType}");
             long length = 0;
             _pathToStream[path] = null; // Avoid recursion into the same file
             var result = RustApi.BuildTableOfContents(path, IntPtr.Zero, 0, ref length);
@@ -141,6 +137,7 @@ namespace UTOC.Stream.Emulator
         public bool TryCreateEmulatedFile(IntPtr handle, string srcDataPath, string outputPath, string route, ref IEmulatedFile? emulated, out Strim? stream)
         {
             stream = null;
+            if (TocType == null) return false; // This game's version is too old for IO Store, quit here
             if (srcDataPath.Contains(DumpFolderParent)) return false;
             string? ext = Path.GetExtension(srcDataPath);
             if (srcDataPath.EndsWith(UtocExtension, StringComparison.OrdinalIgnoreCase))

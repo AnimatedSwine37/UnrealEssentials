@@ -12,13 +12,14 @@ using static UnrealEssentials.Unreal.UnrealString;
 using static UnrealEssentials.Unreal.UnrealArray;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 using Reloaded.Mod.Interfaces.Internal;
+using UnrealEssentials.Interfaces;
 
 namespace UnrealEssentials;
 /// <summary>
 /// Your mod logic goes here.
 /// </summary>
 
-public unsafe class Mod : ModBase // <= Do not Remove.
+public unsafe class Mod : ModBase, IExports // <= Do not Remove.
 {
     /// <summary>
     /// Provides access to the mod loader API.
@@ -137,6 +138,9 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         // Gather pak files from mods
         _modLoader.OnModLoaderInitialized += ModLoaderInit;
         _modLoader.ModLoading += ModLoading;
+
+        // Expose API
+        _modLoader.AddOrReplaceController<IUtocUtilities>(context.Owner, new Api(sigs));
     }
 
     private Signatures GetSignatures()
@@ -321,4 +325,6 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     public Mod() { }
 #pragma warning restore CS8618
     #endregion
+
+    public Type[] GetTypes() => new[] { typeof(IUtocUtilities) };
 }

@@ -50,4 +50,8 @@
 	<PackageReference Include="Reloaded.Memory.SigScan.ReloadedII.Interfaces" Version="1.2.0" />
   </ItemGroup>
 
+	<ItemGroup>
+		<ProjectReference Include="..\UnrealEssentials.Interfaces\UnrealEssentials.Interfaces.csproj"/>
+	</ItemGroup>
+
 </Project>

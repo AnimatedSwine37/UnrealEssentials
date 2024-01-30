@@ -4,6 +4,7 @@ using Reloaded.Hooks.ReloadedII.Interfaces;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using Reloaded.Mod.Interfaces.Internal;
+using UnrealEssentials.Interfaces;
 using UTOC.Stream.Emulator.Configuration;
 using UTOC.Stream.Emulator.Template;
 
@@ -74,6 +75,8 @@ namespace UTOC.Stream.Emulator
 
             var ctrl_weak = _modLoader.GetController<IEmulationFramework>().TryGetTarget(out var framework);
             _modLoader.GetController<IStartupScanner>().TryGetTarget(out var scanFactory);
+            _modLoader.GetController<IUtocUtilities>().TryGetTarget(out var tocUtils);
+            _emu.TocType = tocUtils.GetTocVersion();
             framework!.Register(_emu);
         }
 
