@@ -1,0 +1,59 @@
+[package]
+name = "fileemu-utoc-stream-emulator"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Rirurin" ]
+description = "Simulates Unreal Engine IO Store files. Allows mods to add or replace existing files using files on disk."
+repository = "https://github.com/Sewer56/FileEmulationFramework"
+license = "GPL-3.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitflags = "2.4"
+byteorder = "1"
+cityhasher = "0.1"
+libc = "0.2"
+sha1 = { version = "0.10", optional = true }
+
+[features]
+hash_meta = ["dep:sha1"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints.rust]
+unused_imports = "allow"
+unused_must_use = "allow"
+unused_variables = "allow"
+dead_code = "allow"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[target.'cfg(unix)'.dev-dependencies]
+pprof = { version = "0.12", features = ["flamegraph", "criterion"] }
+
+# Dev Build
+[profile.dev]
+panic = "abort"
+
+# Profile Build
+[profile.profile]
+inherits = "release"
+debug = true
+codegen-units = 1
+lto = true
+strip = false  # No stripping!!
+
+# Optimized Release Build
+[profile.release]
+codegen-units = 1
+lto = "fat"
+strip = true  # Automatically strip symbols from the binary.
+panic = "abort"
+
+# Benchmark Stuff
+[[bench]]
+name = "my_benchmark"
+harness = false

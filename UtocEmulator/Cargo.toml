@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "fileemu-utoc-stream-emulator",
+    "toc-builder-test"
+]
+resolver = "2"

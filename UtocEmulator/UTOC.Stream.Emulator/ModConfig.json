@@ -1,0 +1,29 @@
+{
+  "ModId": "UTOC.Stream.Emulator",
+  "ModName": "IO Store Emulator",
+  "ModAuthor": "Rirurin",
+  "ModVersion": "0.1.0",
+  "ModDescription": "Simulates Unreal Engine IO Store files (.utoc + .ucas). Allows mods to add or replace existing files using files on disk",
+  "ModDll": "UTOC.Stream.Emulator.dll",
+  "ModIcon": "Preview.png",
+  "ModR2RManagedDll32": "x86/UTOC.Stream.Emulator.dll",
+  "ModR2RManagedDll64": "x64/UTOC.Stream.Emulator.dll",
+  "ModNativeDll32": "",
+  "ModNativeDll64": "",
+  "Tags": [],
+  "CanUnload": null,
+  "HasExports": null,
+  "IsLibrary": true,
+  "ReleaseMetadataFileName": "UTOC.Stream.Emulator.ReleaseMetadata.json",
+  "PluginData": {},
+  "IsUniversalMod": true,
+  "ModDependencies": [
+    "reloaded.sharedlib.hooks",
+    "reloaded.universal.fileemulationframework",
+    "Reloaded.Memory.SigScan.ReloadedII",
+    "UnrealEssentials"
+  ],
+  "OptionalDependencies": [],
+  "SupportedAppId": [],
+  "ProjectUrl": ""
+}

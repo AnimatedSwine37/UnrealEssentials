@@ -135,6 +135,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         //});
 
         // Gather pak files from mods
+        _modLoader.OnModLoaderInitialized += ModLoaderInit;
         _modLoader.ModLoading += ModLoading;
     }
 
@@ -261,11 +262,14 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private void ModLoading(IModV1 mod, IModConfigV1 modConfig)
     {
         if (modConfig.ModDependencies.Contains(_modConfig.ModId))
-        {
-            var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal");
-            _pakFolders.Add(modsPath);
-            Log($"Loading files from {modsPath}");
-        }
+            LoadFilesFrom(Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal"));
+    }
+    private void ModLoaderInit() => LoadFilesFrom(Path.Combine(_modLoader.GetDirectoryForModId(_modConfig.ModId), "Unreal"));
+
+    private void LoadFilesFrom(string modsPath)
+    {
+        _pakFolders.Add(modsPath);
+        Log($"Loading files from {modsPath}");
     }
 
     private nuint MountUtoc(nuint thisPtr, nuint status, FIoStoreEnvironment* environment)
