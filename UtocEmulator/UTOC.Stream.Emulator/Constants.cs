@@ -10,9 +10,11 @@ namespace UTOC.Stream.Emulator
     {
         public static readonly string UtocExtension = ".utoc";
         public static readonly string UcasExtension = ".ucas";
+        public static readonly string PakExtension = ".pak";
         public static readonly string DumpFolderParent = "FEmulator-Dumps";
         public static readonly string DumpFolderToc = "UTOCEmulator";
         public static readonly string UnrealEssentialsName = "UnrealEssentials";
+        public static readonly string UsedProcessIds = "UsedProcessIds";
         public static readonly int DefaultCompressionBlockAlignment = 0x800;
     }
 }

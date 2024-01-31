@@ -17,7 +17,6 @@ use std::{
 pub type TocDirectorySyncRef = Arc<RwLock<TocDirectory>>;
 pub type TocFileSyncRef = Arc<RwLock<TocFile>>;
 
-pub const FILE_EMULATION_FRAMEWORK_FOLDER:  &'static str = "FEmulator";
 pub const EMULATOR_NAME:                    &'static str = "UTOC";
 pub const PROJECT_NAME:                     &'static str = "UnrealEssentials";
 
@@ -31,7 +30,7 @@ pub fn add_from_folders(mod_id: &str, mod_path: &str) {
     if *profiler_lock == None { // Check profiler is active
         *profiler_lock = Some(AssetCollectorProfiler::new());
     }
-    let mod_path: PathBuf = [mod_path, FILE_EMULATION_FRAMEWORK_FOLDER, EMULATOR_NAME, TARGET_TOC].iter().collect();
+    let mod_path: PathBuf = [mod_path, EMULATOR_NAME, TARGET_TOC].iter().collect();
     if Path::exists(Path::new(&mod_path)) {
         let mut profiler_mod = AssetCollectorProfilerMod::new(mod_id, mod_path.to_str().unwrap());
         let mut root_dir_lock = ROOT_DIRECTORY.lock().unwrap();

@@ -67,6 +67,7 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     private IHook<FFileIoStore_ReadBlocks> _readBlocks;
 
     private List<string> _pakFolders = new();
+    private IUtocUtilities TocUtils;
 
     public Mod(ModContext context)
     {
@@ -120,47 +121,13 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
             _pakOpenReadHook = _hooks.CreateHook<PakOpenReadDelegate>(PakOpenRead, address).Activate();
         });
 
-        // Log mounting (for testing)
-        //SigScan("40 53 41 56 41 57 48 81 EC 70 01 00 00", "FIoDispatcherImpl::Mount", address =>
-        //{
-        //    _mountUtocHook = _hooks.CreateHook<IoDispatcherMountDelegate>(MountUtoc, address).Activate();
-        //});
-
-        //SigScan("40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC 28 02 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ??", "FPakPlatformFile::Mount", address =>
-        //{
-        //    _mountPakHook = _hooks.CreateHook<PakPlatformFileMountDelegate>(MountPak, address).Activate();
-        //});
-
-        //SigScan("48 8B C4 4C 89 40 ?? 53 55 56 57 48 83 EC 58", "FindAllPakFiles", address =>
-        //{
-        //    _findAllPakFilesHook = _hooks.CreateHook<FindAllPakFilesDelegate>(FindAllPakFiles, address).Activate();
-        //});
-        SigScan("4C 8B DC 49 89 4B ?? 53 57 41 54", "FFileIoStore::ReadBlocks", address =>
-        {
-            _readBlocks = _hooks.CreateHook<FFileIoStore_ReadBlocks>(FFileIoStore_ReadBlocks, address).Activate();
-        });
-
         // Gather pak files from mods
         _modLoader.OnModLoaderInitialized += ModLoaderInit;
         _modLoader.ModLoading += ModLoading;
 
         // Expose API
-        _modLoader.AddOrReplaceController<IUtocUtilities>(context.Owner, new Api(sigs));
-    }
-
-    private void FFileIoStore_ReadBlocks(nuint thisPtr, FFileIoStoreResolvedRequest* requestPtr)
-    {
-        _readBlocks.OriginalFunction(thisPtr, requestPtr);
-        Log($"offset 0x{requestPtr->ResolvedOffset:X}, size 0x{requestPtr->ResolvedSize:X}, container {requestPtr->ContainerFileIndex}");
-        var firstRequest = requestPtr->ReadRequestsHead->Request;
-        if (firstRequest != null)
-        {
-            Log($"First read request: 0x{firstRequest->FileHandle:X}, 0x{firstRequest->Offset:X}, 0x{firstRequest->Size:X}, Key: 0x{firstRequest->Key:X}");
-            if (firstRequest->Buffer != null)
-            {
-                Log($"Memory location: 0x{(nint)firstRequest->Buffer->Memory:X}");
-            }
-        }
+        TocUtils = new Api(sigs, _modLoader.GetDirectoryForModId(_modConfig.ModId));
+        _modLoader.AddOrReplaceController(context.Owner, TocUtils);
     }
 
     private Signatures GetSignatures()
@@ -288,7 +255,7 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         if (modConfig.ModDependencies.Contains(_modConfig.ModId))
             LoadFilesFrom(Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal"));
     }
-    private void ModLoaderInit() => LoadFilesFrom(Path.Combine(_modLoader.GetDirectoryForModId(_modConfig.ModId), "Unreal"));
+    private void ModLoaderInit() => LoadFilesFrom(TocUtils.GetTargetTocDirectory());
 
     private void LoadFilesFrom(string modsPath)
     {
