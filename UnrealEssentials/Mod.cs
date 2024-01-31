@@ -62,6 +62,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private FPakSigningKeys* _signingKeys;
     private string _modsPath;
     private List<string> _pakFolders = new();
+    private Dictionary<string, string> _redirections = new();
 
     public Mod(ModContext context)
     {
@@ -142,7 +143,6 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private bool FindFileInPakFiles(nuint* Paks, char* Filename, void** OutPakFile, void* OutEntry)
     {
         var fileName = Marshal.PtrToStringUni((nint)Filename);
-        //Log($"Looking for {fileName} in pak files");
 
         if (TryFindLooseFile(fileName, out _))
             return true;
@@ -253,29 +253,9 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         return res;
     }
 
-    private bool TryFindLooseFile(string fullFilePath, out string looseFile)
+    private bool TryFindLooseFile(string gameFilePath, out string? looseFile)
     {
-        // If it doesn't start with this it's presumably an absolute path so we're not changing it
-        // This is a bit jank, hopefully it work with all games :)
-        looseFile = "";
-        if (!fullFilePath.StartsWith(@"../../../"))
-            return false;
-
-        var filePath = fullFilePath.Substring(9); // Ignore the ../../../ which puts it to the root dir of the game
-
-        // Go in reverse order of mods so the lowest one in the list has highest priority
-        for(int i =  _pakFolders.Count - 1; i >= 0; i--)
-        {
-            var potentialPath = Path.Combine(_pakFolders[i], filePath);
-            if (File.Exists(potentialPath))
-            {
-                looseFile = potentialPath;
-                return true;
-            }
-        }
-
-        // We didn't find a loose file
-        return false;
+        return _redirections.TryGetValue(gameFilePath, out looseFile);
     }
 
     private void ModLoading(IModV1 mod, IModConfigV1 modConfig)
@@ -284,7 +264,18 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         {
             var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal");
             _pakFolders.Add(modsPath);
+            AddRedirections(modsPath);
             Log($"Loading files from {modsPath}");
+        }
+    }
+
+    private void AddRedirections(string modsPath)
+    {
+        foreach(var file in Directory.EnumerateFiles(modsPath, "*", SearchOption.AllDirectories))
+        {
+            var gamePath = Path.Combine(@"..\..\..", Path.GetRelativePath(modsPath, file)); // recreate what the game would try to load
+            _redirections[gamePath] = file;
+            _redirections[gamePath.Replace('\\', '/')] = file; // UE could try to load it using either separator
         }
     }
 
