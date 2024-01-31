@@ -81,7 +81,8 @@ namespace UTOC.Stream.Emulator
 
             var ctrl_weak = _modLoader.GetController<IEmulationFramework>().TryGetTarget(out var framework);
             _modLoader.GetController<IStartupScanner>().TryGetTarget(out var scanFactory);
-            _emu.TocVersion = tocUtils.GetTocVersion();
+            _emu.TocVersion = tocUtils.GetTocVersion(); // Set Toc Version
+            _emu.PakVersion = tocUtils.GetPakVersion(); // Set Pak Version
             framework!.Register(_emu);
             OpenContainerAddress = Process.GetCurrentProcess().MainModule.BaseAddress;
             if (tocUtils.GetFileIoStoreHookSig() != null)

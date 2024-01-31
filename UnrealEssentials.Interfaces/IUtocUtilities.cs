@@ -8,5 +8,6 @@
         // The UCAS will always report having a file size of 0, but has a valid handle. I don't know why this happens, it just does
         public string GetFileIoStoreHookSig();
         public void RemoveFolderOnFailure(string modsPath);
+        public PakType GetPakVersion();
     }
 }

@@ -33,6 +33,7 @@ namespace UTOC.Stream.Emulator
         public bool DumpFiles { get; set; }
         public Logger _logger { get; init; }
         public TocType? TocVersion { get; set; }
+        public PakType PakVersion { get; set; }
         public Strim? TocStream { get; set; }
         public Strim? CasStream { get; set; }
         public string UnrealEssentialsPath { get; set; }
@@ -120,6 +121,32 @@ namespace UTOC.Stream.Emulator
             return true;
         }
 
+        private Strim GetDummyPak()
+        {
+            var dummyPaksLocation = Path.Combine(UnrealEssentialsPath, "DummyPaks");
+            // Assumed to only be FrozenIndex or Fn64BugFix (only Pak versions to have IO Store support)
+            if (PakVersion == PakType.FrozenIndex)
+            {
+                _logger.Info($"[UtocEmulator] Using Pak Type FrozenIndex");
+                return new FileStream(Path.Combine(dummyPaksLocation, $"FrozenIndex{Constants.PakExtension}"), FileMode.Open);
+            }
+            _logger.Info($"[UtocEmulator] Using Pak Type Fn64BugFix");
+            return new FileStream(Path.Combine(dummyPaksLocation, $"Fn64BugFix{Constants.PakExtension}"), FileMode.Open);
+        }
+
+        public bool TryCreateDummyPak(string path, ref IEmulatedFile? emulated, out Strim? stream)
+        {
+            stream = null;
+            _pathToStream[path] = null;
+            if (!path.Contains(TocLocationPath)) return false;
+            stream = GetDummyPak();
+            emulated = new EmulatedFile<Strim>(stream);
+            _logger.Info($"[UtocEmulator] Created Emulated IO Store PAK with Path {path}");
+            if (DumpFiles)
+                DumpFile(path, stream);
+            return false;
+        }
+
         /// <summary>
         /// Tries to create an emulated file from a given file handle.
         /// </summary>
@@ -143,6 +170,10 @@ namespace UTOC.Stream.Emulator
             else if (srcDataPath.EndsWith(Constants.UcasExtension, StringComparison.OrdinalIgnoreCase))
             {
                 if (TryCreateIoStoreContainer(handle, srcDataPath, ref emulated!, out _)) return true;
+            }
+            else if (srcDataPath.EndsWith(Constants.PakExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                if (TryCreateDummyPak(srcDataPath, ref emulated!, out _)) return true;
             }
             return false;
         }
@@ -168,8 +199,20 @@ namespace UTOC.Stream.Emulator
 
         public void MakeFilesOnInit() // from base Unreal Essentials path
         {
-            if (TocVersion == null) return;
+            if (TocVersion == null)
+            {
+                _logger.Info($"[UtocEmulator] Toc Version was not provided, stopping here");
+                OnFail(TocLocationPath);
+                return;
+            }
+            if (PakVersion != PakType.FrozenIndex && PakVersion != PakType.Fn64BugFix)
+            {
+                _logger.Info($"[UtocEmulator] Pak version {PakVersion} is too old, stopping here");
+                OnFail(TocLocationPath);
+                return;
+            }
             Directory.CreateDirectory(TocLocationPath); // create target directory
+            
             nint tocLength = 0;
             nint tocData = 0;
             nint blockPtr = 0;

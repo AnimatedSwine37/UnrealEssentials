@@ -19,5 +19,6 @@ namespace UnrealEssentials
         public string GetTargetTocDirectory() => Path.Combine(essentialsDir, "UTOC");
         public string GetFileIoStoreHookSig() => sigs.FileIoStoreOpenContainer;
         public void RemoveFolderOnFailure(string modsPath) => RemoveFolderCb(modsPath);
+        public PakType GetPakVersion() => sigs.PakVersion;
     }
 }
