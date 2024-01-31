@@ -64,7 +64,6 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     private IHook<IoDispatcherMountDelegate> _mountUtocHook;
     private IHook<PakPlatformFileMountDelegate> _mountPakHook;
     private IHook<FindAllPakFilesDelegate> _findAllPakFilesHook;
-    private IHook<FFileIoStore_ReadBlocks> _readBlocks;
 
     private List<string> _pakFolders = new();
     private IUtocUtilities TocUtils;
@@ -124,9 +123,8 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         // Gather pak files from mods
         _modLoader.OnModLoaderInitialized += ModLoaderInit;
         _modLoader.ModLoading += ModLoading;
-
         // Expose API
-        TocUtils = new Api(sigs, _modLoader.GetDirectoryForModId(_modConfig.ModId));
+        TocUtils = new Api(sigs, _modLoader.GetDirectoryForModId(_modConfig.ModId), TryRemoveFromPakFolders);
         _modLoader.AddOrReplaceController(context.Owner, TocUtils);
     }
 
@@ -293,6 +291,14 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         {
             var str = new FString(pakFolder);
             outPakFolders->Add(str);
+        }
+    }
+
+    private void TryRemoveFromPakFolders(string targetMod)
+    {
+        if (_pakFolders.Remove(targetMod))
+        {
+            Log($"Removed pak folder {targetMod}");
         }
     }
 

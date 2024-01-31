@@ -51,18 +51,6 @@ pub unsafe extern "C" fn BuildTableOfContentsEx(
             // UTOC
             *tocLength = n.len() as u64; // set length parameter
             *tocData = n.leak().as_ptr(); // leak memory lol (toc data needs to live for rest of program)
-            /* 
-            match toc_factory::get_virtual_partition(&cas_path) {
-                Some(n) => {
-                    *blockCount = n.0.len(); // container blocks
-                    *blocks = n.0.as_ptr();
-                    *headerSize = n.1.len(); // container header
-                    *header = n.1.as_ptr();
-                    true
-                }, 
-                None => false
-            }
-            */
             // UCAS
             let container_lock = CONTAINER_DATA.lock().unwrap();
             match (*container_lock).as_ref() {

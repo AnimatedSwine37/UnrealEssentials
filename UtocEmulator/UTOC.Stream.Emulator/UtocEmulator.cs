@@ -37,16 +37,17 @@ namespace UTOC.Stream.Emulator
         public Strim? CasStream { get; set; }
         public string UnrealEssentialsPath { get; set; }
         public string TocLocationPath { get; set; }
-        private bool MakeDummyUtocFile { get; set; } = false;
+        public Action<string> OnFail { get; set; }
 
         private readonly ConcurrentDictionary<string, Strim?> _pathToStream = new(StringComparer.OrdinalIgnoreCase);
 
-        public UtocEmulator(Logger logger, bool canDump, string essentialsPath, string tocPath) 
+        public UtocEmulator(Logger logger, bool canDump, string essentialsPath, string tocPath, Action<string> onFail) 
         { 
             _logger = logger; 
             DumpFiles = canDump;
             UnrealEssentialsPath = essentialsPath;
             TocLocationPath = tocPath;
+            OnFail = onFail;
         }
 
         public bool TryCreateFile(IntPtr handle, string filepath, string route, out IEmulatedFile emulated)
@@ -67,9 +68,8 @@ namespace UTOC.Stream.Emulator
         public bool TryCreateIoStoreTOC(string path, ref IEmulatedFile? emulated, out Strim? stream)
         {
             stream = null;
-            if (MakeDummyUtocFile) return false; // We create a new utoc file after FileEmu was initialized, which will set off this hook, so filter that
             _pathToStream[path] = null; // Avoid recursion into the same file
-            if (!path.Contains(TocLocationPath)) return false;
+            if (!path.Contains(TocLocationPath) || TocStream == null) return false;
             stream = TocStream;
             emulated = new EmulatedFile<Strim>(stream);
             _logger.Info($"[UtocEmulator] Created Emulated Table of Contents with Path {path}");
@@ -111,7 +111,7 @@ namespace UTOC.Stream.Emulator
         {
             stream = null;
             _pathToStream[path] = null;
-            if (!path.Contains(TocLocationPath)) return false;
+            if (!path.Contains(TocLocationPath) || CasStream == null) return false;
             stream = CasStream;
             emulated = new EmulatedFile<Strim>(stream);
             _logger.Info($"[UtocEmulator] Created Emulated Container with Path {path}");
@@ -183,13 +183,13 @@ namespace UTOC.Stream.Emulator
             if (!result)
             {
                 _logger.Info($"[UtocEmulator] An error occurred while making IO Store data");
+                OnFail(TocLocationPath);
                 return;
             }
             unsafe
             {
                 TocStream = new UnmanagedMemoryStream((byte*)tocData, (long)tocLength);
                 CasStream = new MultiStream(CreateContainerStream(blockPtr, (int)blockCount, headerPtr, (int)headerSize), _logger);
-                //WriteContainer(Path.Combine(TocLocationPath, $"{Constants.UnrealEssentialsName}{Constants.UcasExtension}"), new MultiStream(casStreams, _logger));
             }
         }
         public void OnLoaderInit()

@@ -25,6 +25,7 @@ pub static ASSET_COLLECTOR_PROFILER: Mutex<Option<AssetCollectorProfiler>> = Mut
 
 // Create tree of assets that can be used to build a TOC
 pub fn add_from_folders(mod_id: &str, mod_path: &str) {
+    println!("add from folders: {}, {}", mod_id, mod_path);
     // mod loading happens synchronously, safe to unwrap
     let mut profiler_lock = ASSET_COLLECTOR_PROFILER.lock().unwrap();
     if *profiler_lock == None { // Check profiler is active

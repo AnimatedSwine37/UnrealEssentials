@@ -71,7 +71,10 @@ namespace UTOC.Stream.Emulator
 
             _log = new Logger(_logger, _configuration.LogLevel);
             _log.Info("Starting UTOC.Stream.Emulator");
-            _emu = new UtocEmulator(_log, _configuration.DumpFiles, tocUtils.GetUnrealEssentialsPath(), tocUtils.GetTargetTocDirectory());
+            _emu = new UtocEmulator(
+                _log, _configuration.DumpFiles, tocUtils.GetUnrealEssentialsPath(), 
+                tocUtils.GetTargetTocDirectory(), tocUtils.RemoveFolderOnFailure
+            );
 
             _modLoader.ModLoading += OnModLoading;
             _modLoader.OnModLoaderInitialized += OnLoaderInit;
@@ -81,17 +84,20 @@ namespace UTOC.Stream.Emulator
             _emu.TocVersion = tocUtils.GetTocVersion();
             framework!.Register(_emu);
             OpenContainerAddress = Process.GetCurrentProcess().MainModule.BaseAddress;
-            scanFactory.AddMainModuleScan(tocUtils.GetFileIoStoreHookSig(), result =>
+            if (tocUtils.GetFileIoStoreHookSig() != null)
             {
-                if (!result.Found)
+                scanFactory.AddMainModuleScan(tocUtils.GetFileIoStoreHookSig(), result =>
                 {
-                    _log.Info($"[UtocEmulator] Unable to find OpenContainer, stuff won't work :(");
-                    return;
-                }
-                OpenContainerAddress += result.Offset;
-                _log.Info($"[UtocEmulator] Found OpenContainer at 0x{OpenContainerAddress:X}");
-                _openContainerHook = _hooks.CreateHook<OpenContainerDelegate>(OpenContainer, OpenContainerAddress).Activate();
-            });
+                    if (!result.Found)
+                    {
+                        _log.Info($"[UtocEmulator] Unable to find OpenContainer, stuff won't work :(");
+                        return;
+                    }
+                    OpenContainerAddress += result.Offset;
+                    _log.Info($"[UtocEmulator] Found OpenContainer at 0x{OpenContainerAddress:X}");
+                    _openContainerHook = _hooks.CreateHook<OpenContainerDelegate>(OpenContainer, OpenContainerAddress).Activate();
+                });
+            }
         }
 
         private void OnLoaderInit()
