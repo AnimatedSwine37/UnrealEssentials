@@ -67,13 +67,13 @@ namespace UTOC.Stream.Emulator
             _configuration = context.Configuration;
             _modConfig = context.ModConfig;
 
-            _modLoader.GetController<IUtocUtilities>().TryGetTarget(out var tocUtils);
+            _modLoader.GetController<IUtocUtilities>().TryGetTarget(out var tocUtils); // For communication with Unreal Essentials
 
             _log = new Logger(_logger, _configuration.LogLevel);
             _log.Info("Starting UTOC.Stream.Emulator");
             _emu = new UtocEmulator(
-                _log, _configuration.DumpFiles, tocUtils.GetUnrealEssentialsPath(), 
-                tocUtils.GetTargetTocDirectory(), tocUtils.RemoveFolderOnFailure
+                _log, _configuration.DumpFiles, _modLoader.GetDirectoryForModId(_modConfig.ModId),
+                tocUtils.GetUnrealEssentialsPath(), tocUtils.AddPakFolder
             );
 
             _modLoader.ModLoading += OnModLoading;

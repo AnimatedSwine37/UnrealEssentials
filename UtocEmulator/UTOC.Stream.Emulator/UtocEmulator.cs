@@ -37,18 +37,22 @@ namespace UTOC.Stream.Emulator
         public Strim? TocStream { get; set; }
         public Strim? CasStream { get; set; }
         public string UnrealEssentialsPath { get; set; }
-        public string TocLocationPath { get; set; }
-        public Action<string> OnFail { get; set; }
+        private string ModPath { get; init; }
+        private string ModTargetFilesDirectory { get; init; }
+        private string ModDummyPakFilesDirectory { get; init; }
+        public Action<string> AddPakFolderCb { get; set; }
 
         private readonly ConcurrentDictionary<string, Strim?> _pathToStream = new(StringComparer.OrdinalIgnoreCase);
 
-        public UtocEmulator(Logger logger, bool canDump, string essentialsPath, string tocPath, Action<string> onFail) 
+        public UtocEmulator(Logger logger, bool canDump, string modPath, string essentialsPath, Action<string> addPakFolderCb) 
         { 
             _logger = logger; 
             DumpFiles = canDump;
             UnrealEssentialsPath = essentialsPath;
-            TocLocationPath = tocPath;
-            OnFail = onFail;
+            ModPath = modPath;
+            ModTargetFilesDirectory = Path.Combine(ModPath, Constants.TargetDir);
+            ModDummyPakFilesDirectory = Path.Combine(ModPath, Constants.DummyPakDir);
+            AddPakFolderCb = addPakFolderCb;
         }
 
         public bool TryCreateFile(IntPtr handle, string filepath, string route, out IEmulatedFile emulated)
@@ -70,7 +74,7 @@ namespace UTOC.Stream.Emulator
         {
             stream = null;
             _pathToStream[path] = null; // Avoid recursion into the same file
-            if (!path.Contains(TocLocationPath) || TocStream == null) return false;
+            if (!path.Contains(ModTargetFilesDirectory) || TocStream == null) return false;
             stream = TocStream;
             emulated = new EmulatedFile<Strim>(stream);
             _logger.Info($"[UtocEmulator] Created Emulated Table of Contents with Path {path}");
@@ -112,7 +116,7 @@ namespace UTOC.Stream.Emulator
         {
             stream = null;
             _pathToStream[path] = null;
-            if (!path.Contains(TocLocationPath) || CasStream == null) return false;
+            if (!path.Contains(ModTargetFilesDirectory) || CasStream == null) return false;
             stream = CasStream;
             emulated = new EmulatedFile<Strim>(stream);
             _logger.Info($"[UtocEmulator] Created Emulated Container with Path {path}");
@@ -123,22 +127,21 @@ namespace UTOC.Stream.Emulator
 
         private Strim GetDummyPak()
         {
-            var dummyPaksLocation = Path.Combine(UnrealEssentialsPath, "DummyPaks");
             // Assumed to only be FrozenIndex or Fn64BugFix (only Pak versions to have IO Store support)
             if (PakVersion == PakType.FrozenIndex)
             {
                 _logger.Info($"[UtocEmulator] Using Pak Type FrozenIndex");
-                return new FileStream(Path.Combine(dummyPaksLocation, $"FrozenIndex{Constants.PakExtension}"), FileMode.Open);
+                return new FileStream(Path.Combine(ModDummyPakFilesDirectory, $"FrozenIndex{Constants.PakExtension}"), FileMode.Open);
             }
             _logger.Info($"[UtocEmulator] Using Pak Type Fn64BugFix");
-            return new FileStream(Path.Combine(dummyPaksLocation, $"Fn64BugFix{Constants.PakExtension}"), FileMode.Open);
+            return new FileStream(Path.Combine(ModDummyPakFilesDirectory, $"Fn64BugFix{Constants.PakExtension}"), FileMode.Open);
         }
 
         public bool TryCreateDummyPak(string path, ref IEmulatedFile? emulated, out Strim? stream)
         {
             stream = null;
             _pathToStream[path] = null;
-            if (!path.Contains(TocLocationPath)) return false;
+            if (!path.Contains(ModTargetFilesDirectory)) return false;
             stream = GetDummyPak();
             emulated = new EmulatedFile<Strim>(stream);
             _logger.Info($"[UtocEmulator] Created Emulated IO Store PAK with Path {path}");
@@ -202,17 +205,13 @@ namespace UTOC.Stream.Emulator
             if (TocVersion == null)
             {
                 _logger.Info($"[UtocEmulator] Toc Version was not provided, stopping here");
-                OnFail(TocLocationPath);
                 return;
             }
             if (PakVersion != PakType.FrozenIndex && PakVersion != PakType.Fn64BugFix)
             {
                 _logger.Info($"[UtocEmulator] Pak version {PakVersion} is too old, stopping here");
-                OnFail(TocLocationPath);
                 return;
             }
-            Directory.CreateDirectory(TocLocationPath); // create target directory
-            
             nint tocLength = 0;
             nint tocData = 0;
             nint blockPtr = 0;
@@ -220,13 +219,12 @@ namespace UTOC.Stream.Emulator
             nint headerPtr = 0;
             nint headerSize = 0;
             var result = RustApi.BuildTableOfContentsEx(
-                TocLocationPath, (uint)TocVersion, ref tocData, ref tocLength,
+                ModTargetFilesDirectory, (uint)TocVersion, ref tocData, ref tocLength,
                 ref blockPtr, ref blockCount, ref headerPtr, ref headerSize
             );
             if (!result)
             {
                 _logger.Info($"[UtocEmulator] An error occurred while making IO Store data");
-                OnFail(TocLocationPath);
                 return;
             }
             unsafe
@@ -234,6 +232,7 @@ namespace UTOC.Stream.Emulator
                 TocStream = new UnmanagedMemoryStream((byte*)tocData, (long)tocLength);
                 CasStream = new MultiStream(CreateContainerStream(blockPtr, (int)blockCount, headerPtr, (int)headerSize), _logger);
             }
+            AddPakFolderCb(ModTargetFilesDirectory);
         }
         public void OnLoaderInit()
         {

@@ -28,4 +28,7 @@ internal unsafe class Native
     internal delegate void FindAllPakFilesDelegate(nuint LowerLevelFile, TArray<FString>* PakFolders, FString* WildCard, TArray<FString>* OutPakFiles);
     internal delegate int GetPakOrderDelegate(FString* PakFilePath);
     internal delegate nuint PakOpenReadDelegate(nuint thisPtr, nint fileNamePtr, bool bAllowWrite);
+    internal delegate nuint PakOpenAsyncReadDelegate(nint thisPtr, nint fileNamePtr);
+    internal delegate bool FindFileInPakFilesDelegate(nuint* Paks, char* Filename, void** OutPakFile, void* OutEntry);
+    internal delegate bool IsNonPakFilenameAllowedDelegate(nuint thisPtr, FString* Filename);
 }

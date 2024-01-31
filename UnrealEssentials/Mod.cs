@@ -56,16 +56,15 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     private IHook<GetPakFoldersDelegate> _getPakFoldersHook;
     private IHook<GetPakOrderDelegate> _getPakOrderHook;
     private IHook<PakOpenReadDelegate> _pakOpenReadHook;
+    private IHook<PakOpenAsyncReadDelegate> _pakOpenAsyncReadHook;
+    private IHook<FindFileInPakFilesDelegate> _findFileInPakFilesHook;
+    private IHook<IsNonPakFilenameAllowedDelegate> _isNonPakFilenameAllowedHook;
+
     private FPakSigningKeys* _signingKeys;
     private string _modsPath;
-
-    // For testing with Scarlet Nexus 
-    // TODO either remove this or add signatures for other unreal versions
-    private IHook<IoDispatcherMountDelegate> _mountUtocHook;
-    private IHook<PakPlatformFileMountDelegate> _mountPakHook;
-    private IHook<FindAllPakFilesDelegate> _findAllPakFilesHook;
-
     private List<string> _pakFolders = new();
+    private Dictionary<string, string> _redirections = new();
+
     private IUtocUtilities TocUtils;
 
     public Mod(ModContext context)
@@ -119,13 +118,44 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         {
             _pakOpenReadHook = _hooks.CreateHook<PakOpenReadDelegate>(PakOpenRead, address).Activate();
         });
+        SigScan(sigs.PakOpenAsyncRead, "PakOpenAsyncRead", address =>
+        {
+            _pakOpenAsyncReadHook = _hooks.CreateHook<PakOpenAsyncReadDelegate>(PakOpenAsyncRead, address).Activate();
+        });
+
+        SigScan(sigs.IsNonPakFilenameAllowed, "IsNonPakFilenameAllowed", address =>
+        {
+            _isNonPakFilenameAllowedHook = _hooks.CreateHook<IsNonPakFilenameAllowedDelegate>(IsNonPakFilenameAllowed, address).Activate();
+        });
+
+        SigScan(sigs.FindFileInPakFiles, "FindFileInPakFiles", address =>
+        {
+            _findFileInPakFilesHook = _hooks.CreateHook<FindFileInPakFilesDelegate>(FindFileInPakFiles, address).Activate();
+        });
 
         // Gather pak files from mods
-        _modLoader.OnModLoaderInitialized += ModLoaderInit;
+        //_modLoader.OnModLoaderInitialized += ModLoaderInit;
         _modLoader.ModLoading += ModLoading;
         // Expose API
-        TocUtils = new Api(sigs, _modLoader.GetDirectoryForModId(_modConfig.ModId), TryRemoveFromPakFolders);
+        TocUtils = new Api(
+            sigs, _modLoader.GetDirectoryForModId(_modConfig.ModId), 
+            AddPakFolder, RemovePakFolder);
         _modLoader.AddOrReplaceController(context.Owner, TocUtils);
+    }
+
+    private bool IsNonPakFilenameAllowed(nuint thisPtr, FString* Filename)
+    {
+        return true;
+    }
+
+    private bool FindFileInPakFiles(nuint* Paks, char* Filename, void** OutPakFile, void* OutEntry)
+    {
+        var fileName = Marshal.PtrToStringUni((nint)Filename);
+
+        if (TryFindLooseFile(fileName, out _))
+            return true;
+
+        return _findFileInPakFilesHook.OriginalFunction(Paks, Filename, OutPakFile, OutEntry);
     }
 
     private Signatures GetSignatures()
@@ -160,13 +190,6 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         }
 
         return sigs;
-    }
-
-    private void FindAllPakFiles(nuint LowerLevelFile, TArray<FString>* PakFolders, FString* WildCard, TArray<FString>* OutPakFiles)
-    {
-        LogDebug($"Searching for pak files in folders:\n{string.Join('\n', *PakFolders)}");
-        _findAllPakFilesHook.OriginalFunction(LowerLevelFile, PakFolders, WildCard, OutPakFiles);
-        LogDebug($"Found pak files:\n{string.Join('\n', *OutPakFiles)}");
     }
 
     private int GetPakOrder(FString* PakFilePath)
@@ -216,55 +239,68 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         return res;
     }
 
-    private bool TryFindLooseFile(string fullFilePath, out string looseFile)
+    private nuint PakOpenAsyncRead(nint thisPtr, nint fileNamePtr)
     {
-        // If it doesn't start with this it's presumably an absolute path so we're not changing it
-        // This is a bit jank, hopefully it work with all games :)
-        looseFile = "";
-        if (!fullFilePath.StartsWith(@"../../../"))
-            return false;
-
-        var filePath = fullFilePath.Substring(9); // Ignore the ../../../ which puts it to the root dir of the game
-
-        // Go in reverse order of mods so the lowest one in the list has highest priority
-        for(int i =  _pakFolders.Count - 1; i >= 0; i--)
+        var fileName = Marshal.PtrToStringUni(fileNamePtr);
+        if (_configuration.FileAccessLog)
         {
-            var potentialPath = Path.Combine(_pakFolders[i], filePath);
-            if (File.Exists(potentialPath))
-            {
-                looseFile = potentialPath;
-                return true;
-            }
+            Log($"Opening async: {fileName}");
         }
 
-        // We didn't find a loose file
-        return false;
+        // No loose file, vanilla behaviour
+        if (!TryFindLooseFile(fileName, out var looseFile))
+            return _pakOpenAsyncReadHook.OriginalFunction(thisPtr, fileNamePtr);
+
+        // Get the pointer to the loose file that UE wants
+        Log($"Redirecting async {fileName} to {looseFile}");
+        var looseFilePtr = Marshal.StringToHGlobalUni(looseFile);
+        var res = _pakOpenAsyncReadHook.OriginalFunction(thisPtr, looseFilePtr);
+
+        // Clean up
+        //Marshal.FreeHGlobal(looseFilePtr);
+        return res;
     }
 
-    private bool MountPak(nuint thisPtr, char* InPakFilename, int PakOrder, char* InPath, bool bLoadIndex)
+    private bool TryFindLooseFile(string gameFilePath, out string? looseFile)
     {
-        var pakName = Marshal.PtrToStringUni((nint)InPakFilename);
-        LogDebug($"Mounting PAK {pakName} with initial priority {PakOrder}");
-        return _mountPakHook.OriginalFunction(thisPtr, InPakFilename, PakOrder, InPath, bLoadIndex);
+        return _redirections.TryGetValue(gameFilePath, out looseFile);
     }
 
     private void ModLoading(IModV1 mod, IModConfigV1 modConfig)
     {
         if (modConfig.ModDependencies.Contains(_modConfig.ModId))
-            LoadFilesFrom(Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal"));
+        {
+            var pakPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal");
+            if (Directory.Exists(pakPath)) // Load loose PAK files
+            {
+                AddPakFolder(pakPath);
+            }
+        }
     }
-    private void ModLoaderInit() => LoadFilesFrom(TocUtils.GetTargetTocDirectory());
 
-    private void LoadFilesFrom(string modsPath)
+    private void AddRedirections(string modsPath)
     {
-        _pakFolders.Add(modsPath);
-        Log($"Loading files from {modsPath}");
+        foreach (var file in Directory.EnumerateFiles(modsPath, "*", SearchOption.AllDirectories))
+        {
+            var gamePath = Path.Combine(@"..\..\..", Path.GetRelativePath(modsPath, file)); // recreate what the game would try to load
+            _redirections[gamePath] = file;
+            _redirections[gamePath.Replace('\\', '/')] = file; // UE could try to load it using either separator
+        }
     }
 
-    private nuint MountUtoc(nuint thisPtr, nuint status, FIoStoreEnvironment* environment)
+    private void AddPakFolder(string path)
     {
-        LogDebug($"Mounting UTOC {environment->Path} with {environment->Order} priority");
-        return _mountUtocHook.OriginalFunction(thisPtr, status, environment);
+        _pakFolders.Add(path);
+        AddRedirections(path);
+        Log($"Loading PAK files from {path}");
+    }
+
+    private void RemovePakFolder(string path)
+    {
+        if (_pakFolders.Remove(path))
+        {
+            Log($"Removed pak folder {path}");
+        }
     }
 
     private FPakSigningKeys* GetPakSigningKeys()
@@ -293,15 +329,6 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
             outPakFolders->Add(str);
         }
     }
-
-    private void TryRemoveFromPakFolders(string targetMod)
-    {
-        if (_pakFolders.Remove(targetMod))
-        {
-            Log($"Removed pak folder {targetMod}");
-        }
-    }
-
 
     #region Standard Overrides
     public override void ConfigurationUpdated(Config configuration)

@@ -13,8 +13,9 @@ namespace UTOC.Stream.Emulator
         public static readonly string PakExtension = ".pak";
         public static readonly string DumpFolderParent = "FEmulator-Dumps";
         public static readonly string DumpFolderToc = "UTOCEmulator";
-        public static readonly string UnrealEssentialsName = "UnrealEssentials";
-        public static readonly string UsedProcessIds = "UsedProcessIds";
         public static readonly int DefaultCompressionBlockAlignment = 0x800;
+
+        public static readonly string TargetDir = "TargetFiles";
+        public static readonly string DummyPakDir = "DummyPaks";
     }
 }
