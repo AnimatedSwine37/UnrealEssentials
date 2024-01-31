@@ -55,6 +55,9 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private IHook<GetPakFoldersDelegate> _getPakFoldersHook;
     private IHook<GetPakOrderDelegate> _getPakOrderHook;
     private IHook<PakOpenReadDelegate> _pakOpenReadHook;
+    private IHook<PakOpenAsyncReadDelegate> _pakOpenAsyncReadHook;
+    private IHook<FindFileInPakFilesDelegate > _findFileInPakFilesHook;
+    private IHook<IsNonPakFilenameAllowedDelegate> _isNonPakFilenameAllowedHook;
     private FPakSigningKeys* _signingKeys;
     private string _modsPath;
 
@@ -118,6 +121,22 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             _pakOpenReadHook = _hooks.CreateHook<PakOpenReadDelegate>(PakOpenRead, address).Activate();
         });
 
+        SigScan(sigs.PakOpenAsyncRead, "PakOpenAsyncRead", address =>
+        {
+            _pakOpenAsyncReadHook = _hooks.CreateHook<PakOpenAsyncReadDelegate>(PakOpenAsyncRead, address).Activate();
+        });
+
+        SigScan(sigs.IsNonPakFilenameAllowed, "IsNonPakFilenameAllowed", address =>
+        {
+            _isNonPakFilenameAllowedHook = _hooks.CreateHook<IsNonPakFilenameAllowedDelegate>(IsNonPakFilenameAllowed, address).Activate();
+        });
+
+        SigScan(sigs.FindFileInPakFiles, "FindFileInPakFiles", address =>
+        {
+            _findFileInPakFilesHook = _hooks.CreateHook<FindFileInPakFilesDelegate>(FindFileInPakFiles, address).Activate();
+        });
+
+
         // Log mounting (for testing)
         //SigScan("40 53 41 56 41 57 48 81 EC 70 01 00 00", "FIoDispatcherImpl::Mount", address =>
         //{
@@ -136,6 +155,22 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
         // Gather pak files from mods
         _modLoader.ModLoading += ModLoading;
+    }
+
+    private bool IsNonPakFilenameAllowed(nuint thisPtr, FString* Filename)
+    {
+        return true;
+    }
+
+    private bool FindFileInPakFiles(nuint* Paks, char* Filename, void** OutPakFile, void* OutEntry)
+    {
+        var fileName = Marshal.PtrToStringUni((nint)Filename);
+        //Log($"Looking for {fileName} in pak files");
+
+        if (TryFindLooseFile(fileName, out _))
+            return true;
+
+        return _findFileInPakFilesHook.OriginalFunction(Paks, Filename, OutPakFile, OutEntry);
     }
 
     private Signatures GetSignatures()
@@ -209,7 +244,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         var fileName = Marshal.PtrToStringUni(fileNamePtr);
         if(_configuration.FileAccessLog)
         {
-            Log($"Opening {fileName}");
+            Log($"Opening: {fileName}");
         }
         
         // No loose file, vanilla behaviour
@@ -223,6 +258,28 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         
         // Clean up
         Marshal.FreeHGlobal(looseFilePtr); 
+        return res;
+    }
+
+    private nuint PakOpenAsyncRead(nint thisPtr, nint fileNamePtr)
+    {
+        var fileName = Marshal.PtrToStringUni(fileNamePtr);
+        if (_configuration.FileAccessLog)
+        {
+            Log($"Opening async: {fileName}");
+        }
+
+        // No loose file, vanilla behaviour
+        if (!TryFindLooseFile(fileName, out var looseFile))
+            return _pakOpenAsyncReadHook.OriginalFunction(thisPtr, fileNamePtr);
+
+        // Get the pointer to the loose file that UE wants
+        Log($"Redirecting async {fileName} to {looseFile}");
+        var looseFilePtr = Marshal.StringToHGlobalUni(looseFile);
+        var res = _pakOpenAsyncReadHook.OriginalFunction(thisPtr, looseFilePtr);
+
+        // Clean up
+        //Marshal.FreeHGlobal(looseFilePtr);
         return res;
     }
 
