@@ -5,6 +5,7 @@ use std::{
     fs, fs::{DirEntry, File},
     io, io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
     mem,
+    pin::Pin,
     //rc::{Rc, Weak},
     sync::{Arc, Mutex, MutexGuard, RwLock, Weak},
     time::Instant,
@@ -46,9 +47,9 @@ pub const TARGET_TOC:   &'static str = "UnrealEssentials.utoc";
 pub const TARGET_CAS:   &'static str = "UnrealEssentials.ucas";
 
 pub static CONTAINER_ENTRIES_OSPATH_POOL: Mutex<Option<Vec<String>>> = Mutex::new(None);
-pub static mut CONTAINER_DATA: Option<ContainerData> = None;
+pub static CONTAINER_DATA: Mutex<Option<ContainerData>> = Mutex::new(None);
 
-pub fn build_table_of_contents(toc_path: &str) -> Option<Vec<u8>> {
+pub fn build_table_of_contents(toc_path: &str, version: u32) -> Option<Vec<u8>> {
     let path_check = PathBuf::from(toc_path); // build TOC here
     let file_name = path_check.file_name().unwrap().to_str().unwrap(); // unwrap, this is a file
     if file_name == TARGET_TOC { // check that we're targeting the correct UTOC
@@ -64,7 +65,7 @@ pub fn build_table_of_contents(toc_path: &str) -> Option<Vec<u8>> {
         None // Not our target TOC
     }
 }
-
+/* 
 pub fn build_container_test(cas_path: &str) {
     use std::ffi::CStr;
     use byteorder::WriteBytesExt;
@@ -85,6 +86,7 @@ pub fn build_container_test(cas_path: &str) {
     writer.write_all(&container_data.header).unwrap();
     fs::write(cas_path, &writer.into_inner()).unwrap();
 }
+*/
 
 // Creates a TOC + CAS given a list of loose directories and files
 // This currently only officially supports 4.25+, 4.26 and 4.27, but TocResolver is implemented in a way that will hopefully make adding support for new versions of
@@ -398,7 +400,7 @@ impl TocResolverType2 {
         (**pool_guard).as_mut().unwrap().push(target_file.os_path.to_owned() + "\0"); // make C formatted string
         let curr_ospath = &(**pool_guard).as_ref().unwrap()[index];
         let new_partition_block = PartitionBlock {
-            os_path: curr_ospath.as_ptr(),
+            os_path: curr_ospath.as_ptr() as usize,
             start: self.cas_pointer,
             length: target_file.file_size
         };
@@ -436,37 +438,22 @@ pub fn build_table_of_contents_inner(root: TocDirectorySyncRef, toc_path: &str) 
     >(TARGET_TOC, PROJECT_NAME, DEFAULT_COMPRESSION_BLOCK_ALIGNMENT);
     resolver.flatten_toc_tree(&mut TocFlattenTracker::new(), Arc::clone(&root));
     let serialize_results = resolver.serialize::<PackageSummary2, IoStoreTocHeaderType3>(&mut profiler, toc_path);
-    unsafe { CONTAINER_DATA = Some(serialize_results.1) };
+    let mut container_lock = CONTAINER_DATA.lock().unwrap();
+    *container_lock = Some(serialize_results.1);
     serialize_results.0
 }
 
 pub struct ContainerData {
-    header: Vec<u8>,
-    virtual_blocks: Vec<PartitionBlock>
+    pub header: Vec<u8>,
+    pub virtual_blocks: Vec<PartitionBlock>
 }
 
 #[repr(C)]
 pub struct PartitionBlock {
-    os_path: *const u8, // 0x0
+    //os_path: *const u8, // 0x0
+    os_path: usize, // 0x0 (pointers don't implement Send or Sync)
     start: u64, // 0x8
     length: u64, // 0x10
-}
-
-pub fn get_virtual_partition(cas_path: &str) -> Option<(&Vec<PartitionBlock>, &Vec<u8>)> {
-    // check that it's our target CAS
-    // build virtual CAS here
-    let path_check = PathBuf::from(cas_path);
-    let file_name = path_check.file_name().unwrap().to_str().unwrap();
-    if file_name == TARGET_CAS {
-        match unsafe { &CONTAINER_DATA } {
-            Some(blocks) => {
-                Some((&blocks.virtual_blocks, &blocks.header))
-            },
-            None => None
-        }
-    } else {
-        None
-    }
 }
 
 pub struct TocBuilderProfiler {

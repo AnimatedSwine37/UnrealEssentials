@@ -64,6 +64,7 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     private IHook<IoDispatcherMountDelegate> _mountUtocHook;
     private IHook<PakPlatformFileMountDelegate> _mountPakHook;
     private IHook<FindAllPakFilesDelegate> _findAllPakFilesHook;
+    private IHook<FFileIoStore_ReadBlocks> _readBlocks;
 
     private List<string> _pakFolders = new();
 
@@ -134,6 +135,10 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         //{
         //    _findAllPakFilesHook = _hooks.CreateHook<FindAllPakFilesDelegate>(FindAllPakFiles, address).Activate();
         //});
+        SigScan("4C 8B DC 49 89 4B ?? 53 57 41 54", "FFileIoStore::ReadBlocks", address =>
+        {
+            _readBlocks = _hooks.CreateHook<FFileIoStore_ReadBlocks>(FFileIoStore_ReadBlocks, address).Activate();
+        });
 
         // Gather pak files from mods
         _modLoader.OnModLoaderInitialized += ModLoaderInit;
@@ -141,6 +146,21 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
 
         // Expose API
         _modLoader.AddOrReplaceController<IUtocUtilities>(context.Owner, new Api(sigs));
+    }
+
+    private void FFileIoStore_ReadBlocks(nuint thisPtr, FFileIoStoreResolvedRequest* requestPtr)
+    {
+        _readBlocks.OriginalFunction(thisPtr, requestPtr);
+        Log($"offset 0x{requestPtr->ResolvedOffset:X}, size 0x{requestPtr->ResolvedSize:X}, container {requestPtr->ContainerFileIndex}");
+        var firstRequest = requestPtr->ReadRequestsHead->Request;
+        if (firstRequest != null)
+        {
+            Log($"First read request: 0x{firstRequest->FileHandle:X}, 0x{firstRequest->Offset:X}, 0x{firstRequest->Size:X}, Key: 0x{firstRequest->Key:X}");
+            if (firstRequest->Buffer != null)
+            {
+                Log($"Memory location: 0x{(nint)firstRequest->Buffer->Memory:X}");
+            }
+        }
     }
 
     private Signatures GetSignatures()

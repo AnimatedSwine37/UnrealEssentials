@@ -20,6 +20,39 @@ internal unsafe class Native
         internal int Order;
     }
 
+    internal struct FFileIoStoreBuffer
+    {
+        internal FFileIoStoreBuffer* Next;
+        internal byte* Memory;
+    }
+
+    internal struct FFileIoStoreReadRequest
+    {
+        internal FFileIoStoreReadRequest* Next;
+        internal nuint FileHandle;
+        internal nuint Offset;
+        internal nuint Size;
+        internal nuint Key; // File Index + Block Index
+        internal FFileIoStoreBuffer* Buffer;
+    }
+
+    internal struct FFileIoStoreReadRequestLink
+    {
+        internal FFileIoStoreReadRequestLink* Next;
+        internal FFileIoStoreReadRequest* Request;
+    }
+
+    internal struct FFileIoStoreResolvedRequest
+    {
+        internal nuint DispatcherRequest;
+        internal nuint ContainerFile;
+        internal FFileIoStoreReadRequestLink* ReadRequestsHead;
+        internal FFileIoStoreReadRequestLink* ReadRequestsTail;
+        internal long ResolvedOffset;
+        internal long ResolvedSize;
+        internal uint ContainerFileIndex;
+    }
+
     internal delegate FPakSigningKeys* GetPakSigningKeysDelegate();
     internal delegate void GetPakFoldersDelegate(nuint cmdLine, TArray<FString>* outPakFolders);
     internal delegate nuint IoDispatcherMountDelegate(nuint thisPtr, nuint status, FIoStoreEnvironment* environment);
@@ -27,4 +60,5 @@ internal unsafe class Native
     internal delegate void FindAllPakFilesDelegate(nuint LowerLevelFile, TArray<FString>* PakFolders, FString* WildCard, TArray<FString>* OutPakFiles);
     internal delegate int GetPakOrderDelegate(FString* PakFilePath);
     internal delegate nuint PakOpenReadDelegate(nuint thisPtr, nint fileNamePtr, bool bAllowWrite);
+    internal delegate void FFileIoStore_ReadBlocks(nuint thisPtr, FFileIoStoreResolvedRequest* requestPtr);
 }

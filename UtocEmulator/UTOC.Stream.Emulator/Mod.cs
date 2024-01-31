@@ -76,7 +76,7 @@ namespace UTOC.Stream.Emulator
             var ctrl_weak = _modLoader.GetController<IEmulationFramework>().TryGetTarget(out var framework);
             _modLoader.GetController<IStartupScanner>().TryGetTarget(out var scanFactory);
             _modLoader.GetController<IUtocUtilities>().TryGetTarget(out var tocUtils);
-            _emu.TocType = tocUtils.GetTocVersion();
+            _emu.TocVersion = tocUtils.GetTocVersion();
             framework!.Register(_emu);
         }
 
@@ -85,12 +85,9 @@ namespace UTOC.Stream.Emulator
             _modLoader.OnModLoaderInitialized -= OnLoaderInit;
             _modLoader.ModLoading -= OnModLoading;
             _modLoader.ModUnloading -= OnModUnloading;
-            _emu.OnLoaderInit();
+            _emu.OnLoaderInit(_modLoader.GetDirectoryForModId("UnrealEssentials"));
         }
-        private void OnModLoading(IModV1 mod, IModConfigV1 conf)
-        {
-            _emu.OnModLoading(conf.ModId, _modLoader.GetDirectoryForModId(conf.ModId));
-        }
+        private void OnModLoading(IModV1 mod, IModConfigV1 conf) => _emu.OnModLoading(conf.ModId, _modLoader.GetDirectoryForModId(conf.ModId));
         private void OnModUnloading(IModV1 mod, IModConfigV1 conf)
         {
             // call OnModUnloading on Rust side

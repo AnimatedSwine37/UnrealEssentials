@@ -7,6 +7,7 @@ using FileEmulationFramework.Lib.Utilities;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -27,21 +28,14 @@ namespace UTOC.Stream.Emulator
     }
     public class UtocEmulator : IEmulator
     {
-        public static readonly string UtocExtension = ".utoc";
-        public static readonly string UcasExtension = ".ucas";
-        public static readonly string DumpFolderParent = "FEmulator-Dumps";
-        public static readonly string DumpFolderToc = "UTOCEmulator";
-        public static readonly int DefaultCompressionBlockAlignment = 0x800;
         public bool DumpFiles { get; set; }
         public Logger _logger { get; init; }
-
-        public TocType? TocType { get; set; }
+        public TocType? TocVersion { get; set; }
+        public Strim? TocStream { get; set; }
 
         private readonly ConcurrentDictionary<string, Strim?> _pathToStream = new(StringComparer.OrdinalIgnoreCase);
 
-        public bool CanDump { get; init; }
-
-        public UtocEmulator(Logger logger, bool canDump) { _logger = logger; CanDump = canDump; }
+        public UtocEmulator(Logger logger, bool canDump) { _logger = logger; DumpFiles = canDump; }
 
         public bool TryCreateFile(IntPtr handle, string filepath, string route, out IEmulatedFile emulated)
         {
@@ -56,36 +50,24 @@ namespace UTOC.Stream.Emulator
             if (!TryCreateEmulatedFile(handle, filepath, filepath, filepath, ref emulated!, out _)) return false;
             return true;
         }
-
         public bool TryCreateIoStoreTOC(string path, ref IEmulatedFile? emulated, out Strim? stream)
         {
+            _logger.Info($"TOC TRY {path}");
             stream = null;
-            _logger.Info($"Using Toc version {TocType}");
-            long length = 0;
             _pathToStream[path] = null; // Avoid recursion into the same file
-            var result = RustApi.BuildTableOfContents(path, IntPtr.Zero, 0, ref length);
-            if (result == IntPtr.Zero) return false;
-            unsafe { stream = new UnmanagedMemoryStream((byte*)result, length); }
-            _pathToStream.TryAdd(path, stream);
+            if (!path.Contains($"{Constants.UnrealEssentialsName}\\Unreal")) return false;
+            stream = TocStream;
+            _logger.Info($"Stream details: length {stream.Length}, position {stream.Position}");
             emulated = new EmulatedFile<Strim>(stream);
             _logger.Info($"[UtocEmulator] Created Emulated Table of Contents with Path {path}");
-            IEmulatedFile? emulatedCas = null;
-            TryCreateIoStoreContainer(Path.ChangeExtension(path, UcasExtension), ref emulatedCas, out _, false);
-            if (CanDump)
+            if (DumpFiles)
                 DumpFile(path, stream);
             return true;
         }
 
-        public bool TryCreateIoStoreContainer(string path, ref IEmulatedFile? emulated, out Strim? stream, bool bEmulatedFile)
+        public List<StreamOffsetPair<Strim>> CreateContainerStream(nint blockPtr, int blockCount, nint headerPtr, int headerSize)
         {
-            stream = null;
-            nint blockCount = 0;
-            nint blockPtr = 0;
-            nint headerSize = 0;
-            nint headerPtr = 0;
-            if (bEmulatedFile) _pathToStream[path] = null; // emulated file locks up at FPackageStore::LoadContainers, write to file for now
-            if (!RustApi.GetContainerBlocks(path, ref blockPtr, ref blockCount, ref headerPtr, ref headerSize)) return false;
-            //_logger.Info($"[UtocEmulator] Created Container File, {blockCount} blocks at 0x{blockPtr:X}, header size {headerSize} at 0x{headerPtr:X}");
+            _logger.Info($"Block: 0x{blockPtr:X}, count {blockCount}, header 0x{headerPtr:X}, size 0x{headerSize:X}");
             var streams = new List<StreamOffsetPair<Strim>>();
             long streamEnd = 0;
             for (int i = 0; i < blockCount; i++)
@@ -96,11 +78,11 @@ namespace UTOC.Stream.Emulator
                     OffsetRange.FromStartAndLength(containerBlock.start, containerBlock.length)
                 ));
                 var containerBlockEnd = containerBlock.start + containerBlock.length;
-                var diff = Mathematics.RoundUp(containerBlockEnd, DefaultCompressionBlockAlignment) - containerBlockEnd;
+                var diff = Mathematics.RoundUp(containerBlockEnd, Constants.DefaultCompressionBlockAlignment) - containerBlockEnd;
                 if (diff > 0)
                     streams.Add(new(new PaddingStream(0, (int)diff), OffsetRange.FromStartAndLength(containerBlockEnd, diff)));
                 unsafe { blockPtr += sizeof(PartitionBlock); }
-                streamEnd = Mathematics.RoundUp(containerBlockEnd, DefaultCompressionBlockAlignment);
+                streamEnd = Mathematics.RoundUp(containerBlockEnd, Constants.DefaultCompressionBlockAlignment);
             }
             unsafe
             {
@@ -109,7 +91,19 @@ namespace UTOC.Stream.Emulator
                     OffsetRange.FromStartAndLength(streamEnd, (long)headerSize)
                 ));
             }
-            stream = new MultiStream(streams, _logger);
+            return streams;
+        }
+
+        public bool TryCreateIoStoreContainer(string path, ref IEmulatedFile? emulated, out Strim? stream, bool bEmulatedFile)
+        {
+            stream = null;
+            nint blockCount = 0;
+            nint blockPtr = 0;
+            nint headerSize = 0;
+            nint headerPtr = 0;
+            if (bEmulatedFile) _pathToStream[path] = null; // emulated file currently produces invalid size values, write to file for now
+            if (!RustApi.GetContainerBlocks(path, ref blockPtr, ref blockCount, ref headerPtr, ref headerSize)) return false;
+            stream = new MultiStream(CreateContainerStream(blockPtr, (int)blockCount, headerPtr, (int)headerSize), _logger);
             if (bEmulatedFile)
             {
                 _pathToStream.TryAdd(path, stream);
@@ -119,7 +113,7 @@ namespace UTOC.Stream.Emulator
             {
                 WriteContainer(path, stream);
             }
-            if (CanDump)
+            if (DumpFiles)
                 DumpFile(path, stream);
             return true;
         }
@@ -137,24 +131,18 @@ namespace UTOC.Stream.Emulator
         public bool TryCreateEmulatedFile(IntPtr handle, string srcDataPath, string outputPath, string route, ref IEmulatedFile? emulated, out Strim? stream)
         {
             stream = null;
-            if (TocType == null) return false; // This game's version is too old for IO Store, quit here
-            if (srcDataPath.Contains(DumpFolderParent)) return false;
+            if (TocVersion == null) return false; // This game's version is too old for IO Store, quit here
+            if (srcDataPath.Contains(Constants.DumpFolderParent)) return false;
             string? ext = Path.GetExtension(srcDataPath);
-            if (srcDataPath.EndsWith(UtocExtension, StringComparison.OrdinalIgnoreCase))
-            {
+            if (srcDataPath.EndsWith(Constants.UtocExtension, StringComparison.OrdinalIgnoreCase))
                 if (TryCreateIoStoreTOC(srcDataPath, ref emulated!, out _)) return true;
-            } 
-            else if (srcDataPath.EndsWith(UcasExtension, StringComparison.OrdinalIgnoreCase))
-            {
-                //if (TryCreateIoStoreContainer(srcDataPath, ref emulated!, out _, true)) return true;
-            }
             return false;
         }
 
         private void DumpFile(string filepath, Strim stream)
         {
-            var filePath = Path.GetFullPath($"{Path.Combine(DumpFolderParent, DumpFolderToc, Path.GetFileName(filepath))}");
-            Directory.CreateDirectory(Path.Combine(DumpFolderParent, DumpFolderToc));
+            var filePath = Path.GetFullPath($"{Path.Combine(Constants.DumpFolderParent, Constants.DumpFolderToc, Path.GetFileName(filepath))}");
+            Directory.CreateDirectory(Path.Combine(Constants.DumpFolderParent, Constants.DumpFolderToc));
             _logger.Info($"[UtocEmulator] Dumping {filepath}");
             using var fileStream = new FileStream(filePath, FileMode.Create);
             stream.CopyTo(fileStream);
@@ -170,6 +158,38 @@ namespace UTOC.Stream.Emulator
         }
 
         public void OnModLoading(string mod_id, string dir_path) => RustApi.AddFromFolders(mod_id, dir_path);
-        public void OnLoaderInit() => RustApi.PrintAssetCollectorResults();
+
+        public void MakeFilesOnInit(string essentialsPath)
+        {
+            if (TocVersion == null) return;
+            var targetDirectory = Path.Combine(essentialsPath, "Unreal");
+            nint tocLength = 0;
+            nint tocData = 0;
+            nint blockPtr = 0;
+            nint blockCount = 0;
+            nint headerPtr = 0;
+            nint headerSize = 0;
+            var result = RustApi.BuildTableOfContentsEx(
+                targetDirectory, (uint)TocVersion, ref tocData, ref tocLength,
+                ref blockPtr, ref blockCount, ref headerPtr, ref headerSize
+            );
+            if (!result)
+            {
+                _logger.Info($"[UtocEmulator] An error occurred while making IO Store data");
+                return;
+            }
+            unsafe
+            {
+                _logger.Info($"Stream for {Path.Combine(targetDirectory, $"{Constants.UnrealEssentialsName}.utoc")}");
+                TocStream = new UnmanagedMemoryStream((byte*)tocData, (long)tocLength);
+                var casStreams = CreateContainerStream(blockPtr, (int)blockCount, headerPtr, (int)headerSize);
+                WriteContainer(Path.Combine(targetDirectory, $"{Constants.UnrealEssentialsName}.ucas"), new MultiStream(casStreams, _logger));
+            }
+        }
+        public void OnLoaderInit(string essentialsPath)
+        {
+            RustApi.PrintAssetCollectorResults();
+            MakeFilesOnInit(essentialsPath);
+        }
     }
 }
