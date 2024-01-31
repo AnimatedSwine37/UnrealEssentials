@@ -85,7 +85,6 @@ namespace UTOC.Stream.Emulator
 
         public List<StreamOffsetPair<Strim>> CreateContainerStream(nint blockPtr, int blockCount, nint headerPtr, int headerSize)
         {
-            _logger.Info($"Block: 0x{blockPtr:X}, count {blockCount}, header 0x{headerPtr:X}, size 0x{headerSize:X}");
             var streams = new List<StreamOffsetPair<Strim>>();
             long streamEnd = 0;
             for (int i = 0; i < blockCount; i++)

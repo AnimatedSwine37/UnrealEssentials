@@ -12,7 +12,7 @@ use std::{
 };
 use crate::{
     asset_collector::{
-        MOUNT_POINT, PROJECT_NAME, SUITABLE_FILE_EXTENSIONS, ROOT_DIRECTORY, 
+        MOUNT_POINT, SUITABLE_FILE_EXTENSIONS, ROOT_DIRECTORY, 
         TocDirectory, TocDirectorySyncRef, TocFile, TocFileSyncRef},
     io_package::{
         ContainerHeaderPackage,
@@ -109,7 +109,7 @@ pub fn build_container_test(cas_path: &str) {
 pub trait TocResolverCommon { // Currently for 4.25+, 4.26 and 4.27
     //type TocHeaderType: IoStoreTocHeaderCommon; // make TocHeader (IoStoreTocHeaderType2 or IoStoreTocHeaderType3)
     //type ContainerHeaderType: PackageIoSummaryDeserialize; // Container Header in UCAS
-    fn new<THeaderType: IoStoreTocHeaderCommon>(toc_name: &str, project_name: &str, block_align: u32) -> impl TocResolverCommon;
+    fn new<THeaderType: IoStoreTocHeaderCommon>(toc_name: &str, block_align: u32) -> impl TocResolverCommon;
 
     fn flatten_toc_tree(&mut self, tracker: &mut TocFlattenTracker, root: TocDirectorySyncRef);
 
@@ -120,14 +120,23 @@ pub trait TocResolverCommon { // Currently for 4.25+, 4.26 and 4.27
 
     // Common across all versions
     fn create_chunk_id(&self, file_path: &str, chunk_type: IoChunkType4) -> IoChunkId {
+        // remove Content from path
+        let path_to_replace_split = file_path.split_once("/Content").unwrap();
+        let path_to_replace = "/".to_owned() + path_to_replace_split.0 + path_to_replace_split.1;
+        println!("{}", path_to_replace);
+        IoChunkId::new(&path_to_replace, chunk_type)
+        /* 
         // replace [BaseDirectory]/Content with /Game/
-        let path_to_replace = PROJECT_NAME.to_owned() + "/Content";
+        //let path_to_replace = PROJECT_NAME.to_owned() + "/Content";
+        let path_to_replace =  "Game/Content";
         if let Some((_, suffix)) = file_path.to_owned().split_once(&path_to_replace) {
             let path_to_hash = String::from("/Game") + suffix;
+            println!("{}", path_to_hash);
             IoChunkId::new(&path_to_hash, chunk_type)
         } else {
             panic!("Path \"{}\" is missing root containing project name + content. Path components were not handled properly", file_path);
         }
+        */
     }
 
     fn get_file_hash(&self, curr_file: &IoFileIndexEntry) -> IoChunkId {
@@ -177,7 +186,6 @@ pub struct TocResolverType2 { // Currently for 4.25+, 4.26 and 4.27
     compression_block_size: u32,
     compression_block_alignment: u32,
     toc_name_hash: u64,
-    pub project_name: String, // name of UE4 project
     pub chunk_ids: Vec<IoChunkId>,
     pub offsets_and_lengths: Vec<IoOffsetAndLength>,
     pub compression_blocks: Vec<IoStoreTocCompressedBlockEntry>,
@@ -190,7 +198,7 @@ impl TocResolverCommon for TocResolverType2 {
     //type ContainerHeaderType = PackageSummary2;
     fn new<
         THeaderType: IoStoreTocHeaderCommon
-    >(toc_name: &str, project_name: &str, block_align: u32) -> impl TocResolverCommon {
+    >(toc_name: &str, block_align: u32) -> impl TocResolverCommon {
         Self { 
             // Directory block
             directories: vec![], // The resulting directory list will be serialized as an FIoDirectoryIndexEntry
@@ -200,8 +208,7 @@ impl TocResolverCommon for TocResolverType2 {
             compression_block_alignment: if block_align < 0x10 { 0x10 } else { block_align }, // 0x800 is default for UE 4.27 (isn't saved in toc), 0x0 is used for UE 4.26
             // every file is virtually put on an alignment of [compression_block_size] (in reality, they're only aligned to nearest 16 bytes)
             // offset section defines where each file's data starts, while compress blocks section defines each compression block
-            toc_name_hash: Hasher16::get_cityhash64(toc_name), // used for container id (is also the last file in partition) (verified)
-            project_name: project_name.to_owned(),
+            toc_name_hash: Hasher16::get_cityhash64("Game"), // used for container id (is also the last file in partition) (verified)
             chunk_ids: vec![],
             offsets_and_lengths: vec![],
             compression_blocks: vec![],
@@ -275,7 +282,10 @@ impl TocResolverType2 {
     fn flatten_toc_tree_dir(&mut self, tracker: &mut TocFlattenTracker, node: TocDirectorySyncRef) -> Vec<IoDirectoryIndexEntry> {
         let mut values = vec![];
         let mut flat_value = IoDirectoryIndexEntry {
-            name: self.get_flat_string_index(tracker, &node.read().unwrap().name),
+            name: match node.read().unwrap().name.as_ref() {
+                Some(t) => self.get_flat_string_index(tracker, t),
+                None => u32::MAX
+            },
             first_child: u32::MAX,
             next_sibling: u32::MAX,
             first_file: u32::MAX
@@ -299,7 +309,9 @@ impl TocResolverType2 {
                 let mut path_comps: Vec<String> = vec![];
                 let mut curr_parent = Arc::clone(&node);
                 loop {
-                    path_comps.insert(0, curr_parent.read().unwrap().name.to_owned());
+                    if let Some(t) = curr_parent.read().unwrap().name.as_ref() {
+                        path_comps.insert(0, t.to_owned());
+                    }
                     match Arc::clone(&curr_parent).read().unwrap().parent.upgrade() {
                         Some(ip) => curr_parent = Arc::clone(&ip),
                         None => break
@@ -435,7 +447,7 @@ pub fn build_table_of_contents_inner(root: TocDirectorySyncRef, toc_path: &str) 
     let mut profiler = TocBuilderProfiler::new();
     let mut resolver = TocResolverType2::new::<
         IoStoreTocHeaderType2
-    >(TARGET_TOC, PROJECT_NAME, DEFAULT_COMPRESSION_BLOCK_ALIGNMENT);
+    >(TARGET_TOC, DEFAULT_COMPRESSION_BLOCK_ALIGNMENT);
     resolver.flatten_toc_tree(&mut TocFlattenTracker::new(), Arc::clone(&root));
     let serialize_results = resolver.serialize::<PackageSummary2, IoStoreTocHeaderType3>(&mut profiler, toc_path);
     let mut container_lock = CONTAINER_DATA.lock().unwrap();

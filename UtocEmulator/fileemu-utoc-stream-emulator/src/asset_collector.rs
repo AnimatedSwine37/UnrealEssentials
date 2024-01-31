@@ -18,7 +18,7 @@ pub type TocDirectorySyncRef = Arc<RwLock<TocDirectory>>;
 pub type TocFileSyncRef = Arc<RwLock<TocFile>>;
 
 pub const EMULATOR_NAME:                    &'static str = "UTOC";
-pub const PROJECT_NAME:                     &'static str = "UnrealEssentials";
+//pub const PROJECT_NAME:                     &'static str = "UnrealEssentials";
 
 pub static ROOT_DIRECTORY: Mutex<Option<TocDirectorySyncRef>> = Mutex::new(None);
 pub static ASSET_COLLECTOR_PROFILER: Mutex<Option<AssetCollectorProfiler>> = Mutex::new(None);
@@ -36,7 +36,7 @@ pub fn add_from_folders(mod_id: &str, mod_path: &str) {
         let mut profiler_mod = AssetCollectorProfilerMod::new(mod_id, mod_path.to_str().unwrap());
         let mut root_dir_lock = ROOT_DIRECTORY.lock().unwrap();
         if let None = *root_dir_lock {
-            *root_dir_lock = Some(TocDirectory::new_rc(PROJECT_NAME));
+            *root_dir_lock = Some(TocDirectory::new_rc(None));
         }
         add_from_folders_inner(Arc::clone(&(*root_dir_lock).as_ref().unwrap()), &mod_path, &mut profiler_mod.data);
         profiler_mod.set_time_to_tree();
@@ -51,7 +51,7 @@ pub fn add_from_folders(mod_id: &str, mod_path: &str) {
 //      B -> C -> D
 
 pub struct TocDirectory {
-    pub name:           String, // leaf name only (directory name or file name)
+    pub name:           Option<String>, // leaf name only (directory name or file name)
     pub parent:         Weak        <RwLock<TocDirectory>>, // weakref to parent for path building for FIoChunkIds
     pub first_child:    Option      <TocDirectorySyncRef>, // first child
     last_child:         Weak        <RwLock<TocDirectory>>, // O(1) insertion on directory add
@@ -62,9 +62,9 @@ pub struct TocDirectory {
 
 impl TocDirectory {
     // constructor
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: Option<String>) -> Self {
         Self {
-            name: String::from(name),
+            name,
             parent: Weak::new(),
             first_child: None,
             last_child: Weak::new(),
@@ -74,7 +74,7 @@ impl TocDirectory {
         }
     }
     #[inline] // convenience function to create reference counted toc directories
-    pub fn new_rc(name: &str) -> Arc<RwLock<Self>> {
+    pub fn new_rc(name: Option<String>) -> Arc<RwLock<Self>> {
         Arc::new(RwLock::new(TocDirectory::new(name)))
     }
     // Returns true/false depending on if the target directory contains any child directories
@@ -172,9 +172,11 @@ impl TocDirectory {
                 let mut curr_dir = Arc::clone(&parent.read().unwrap().first_child.as_ref().unwrap());
                 let mut result = None;
                 loop {
-                    if curr_dir.read().unwrap().name == exist { // we got our directory
-                        result = Some(Arc::clone(&curr_dir));
-                        break;
+                    if let Some(dir_name) = curr_dir.read().unwrap().name.as_ref() {
+                        if dir_name == exist { // we got our directory
+                            result = Some(Arc::clone(&curr_dir));
+                            break;
+                        }
                     }
                     match Arc::clone(&curr_dir).read().unwrap().next_sibling.as_ref() {
                         Some(ip) => curr_dir = Arc::clone(&ip),
@@ -250,7 +252,7 @@ pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, pr
                         Some(child_dir) => add_from_folders_inner(Arc::clone(&child_dir), &inner_path, profiler),
                         None => {
                             // this is a new directory, create it and then check inside it
-                            let new_dir = TocDirectory::new_rc(&name);
+                            let new_dir = TocDirectory::new_rc(Some((&name).to_owned()));
                             TocDirectory::add_directory(Arc::clone(&parent), Arc::clone(&new_dir));
                             add_from_folders_inner(Arc::clone(&new_dir), &inner_path, profiler);
                             profiler.add_directory();
@@ -385,7 +387,7 @@ impl AssetCollectorProfilerModContents {
             for i in &self.incorrect_asset_header {
                 println!("{}", i);
             }
-            println!("If you're the mod author, please make sure that you've followed the guide at [insert docs here] to create correctly formatted assets");
+            println!("If you're the mod author, please make sure that you've followed the guide at \"https://github.com/AnimatedSwine37/UnrealEssentials\" to create correctly formatted assets");
         }
         if self.failed_file_system_objects.len() > 0 {
             println!("{}", "-".repeat(AssetCollectorProfiler::get_terminal_length()));

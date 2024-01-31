@@ -1,6 +1,6 @@
 [package]
 name = "fileemu-utoc-stream-emulator"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = [ "Rirurin" ]
 description = "Simulates Unreal Engine IO Store files. Allows mods to add or replace existing files using files on disk."

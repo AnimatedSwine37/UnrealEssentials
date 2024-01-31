@@ -110,11 +110,11 @@ namespace UTOC.Stream.Emulator
         private void OnModLoading(IModV1 mod, IModConfigV1 conf) => _emu.OnModLoading(conf.ModId, _modLoader.GetDirectoryForModId(conf.ModId));
 
         public bool OpenContainer(nuint thisPtr, nuint containerFilePath, nuint containerFileHandle, nuint containerFileSize)
-        {
+        { // This is a temporary measure due to a bug in FileEmulationFramework
             var returnValue = _openContainerHook.OriginalFunction(thisPtr, containerFilePath, containerFileHandle, containerFileSize);
             unsafe
             {
-                if (Marshal.PtrToStringUni((nint)containerFilePath).Contains("UnrealEssentials"))
+                if (Marshal.PtrToStringUni((nint)containerFilePath).Contains(Constants.UnrealEssentialsName))
                 {
                     *(long*)containerFileSize = _emu.CasStream.Length;
                 }
