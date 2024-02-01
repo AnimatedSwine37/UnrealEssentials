@@ -33,22 +33,22 @@ internal unsafe class Utils
     internal static void LogDebug(string message)
     {
         if (_config.DebugEnabled)
-            _logger.WriteLine($"[Unreal Essentials] {message}");
+            _logger.WriteLineAsync($"[Unreal Essentials] {message}");
     }
 
     internal static void Log(string message)
     {
-        _logger.WriteLine($"[Unreal Essentials] {message}");
+        _logger.WriteLineAsync($"[Unreal Essentials] {message}");
     }
 
     internal static void LogError(string message, Exception e)
     {
-        _logger.WriteLine($"[Unreal Essentials] {message}: {e.Message}", System.Drawing.Color.Red);
+        _logger.WriteLineAsync($"[Unreal Essentials] {message}: {e.Message}", System.Drawing.Color.Red);
     }
 
     internal static void LogError(string message)
     {
-        _logger.WriteLine($"[Unreal Essentials] {message}", System.Drawing.Color.Red);
+        _logger.WriteLineAsync($"[Unreal Essentials] {message}", System.Drawing.Color.Red);
     }
 
     internal static void SigScan(string pattern, string name, Action<nint> action)

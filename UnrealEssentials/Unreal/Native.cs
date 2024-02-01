@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ﻿using System.Runtime.InteropServices;
+=======
+﻿using System;
+>>>>>>> master
 using static UnrealEssentials.Unreal.UnrealArray;
 using static UnrealEssentials.Unreal.UnrealString;
 
@@ -23,9 +27,6 @@ internal unsafe class Native
 
     internal delegate FPakSigningKeys* GetPakSigningKeysDelegate();
     internal delegate void GetPakFoldersDelegate(nuint cmdLine, TArray<FString>* outPakFolders);
-    internal delegate nuint IoDispatcherMountDelegate(nuint thisPtr, nuint status, FIoStoreEnvironment* environment);
-    internal delegate bool PakPlatformFileMountDelegate(nuint thisPtr, char* InPakFilename, int PakOrder, char* InPath, bool bLoadIndex);
-    internal delegate void FindAllPakFilesDelegate(nuint LowerLevelFile, TArray<FString>* PakFolders, FString* WildCard, TArray<FString>* OutPakFiles);
     internal delegate int GetPakOrderDelegate(FString* PakFilePath);
     internal delegate nuint PakOpenReadDelegate(nuint thisPtr, nint fileNamePtr, bool bAllowWrite);
     internal delegate nuint PakOpenAsyncReadDelegate(nint thisPtr, nint fileNamePtr);
