@@ -12,6 +12,7 @@ using UnrealEssentials.Interfaces;
 using UTOC.Stream.Emulator.Configuration;
 using UTOC.Stream.Emulator.Template;
 using System.Runtime.InteropServices;
+using Reloaded.Memory.Sigscan.Definitions.Structs;
 
 namespace UTOC.Stream.Emulator
 {
@@ -55,8 +56,9 @@ namespace UTOC.Stream.Emulator
         private Logger _log;
         private UtocEmulator _emu;
 
-        private long OpenContainerAddress;
+        private long BaseAddress;
         private IHook<OpenContainerDelegate> _openContainerHook;
+        private IHook<FFileIoStore_ReadBlocks> _readBlocksHook;
 
         public Mod(ModContext context)
         {
@@ -84,19 +86,37 @@ namespace UTOC.Stream.Emulator
             _emu.TocVersion = tocUtils.GetTocVersion(); // Set Toc Version
             _emu.PakVersion = tocUtils.GetPakVersion(); // Set Pak Version
             framework!.Register(_emu);
-            OpenContainerAddress = Process.GetCurrentProcess().MainModule.BaseAddress;
-            if (tocUtils.GetFileIoStoreHookSig() != null)
+            BaseAddress = Process.GetCurrentProcess().MainModule.BaseAddress;
+            ContainerFileSizeOverride(tocUtils, scanFactory);
+        }
+
+        private void ContainerFileSizeOverride(IUtocUtilities utils, IStartupScanner scanFactory)
+        {
+            if (utils.GetFileIoStoreHookSig() != null)
             {
-                scanFactory.AddMainModuleScan(tocUtils.GetFileIoStoreHookSig(), result =>
+                scanFactory.AddMainModuleScan(utils.GetFileIoStoreHookSig(), result =>
                 {
                     if (!result.Found)
                     {
-                        _log.Info($"[UtocEmulator] Unable to find OpenContainer, stuff won't work :(");
+                        _log.Info($"[UtocEmulator] Unable to find Open Container, stuff won't work :(");
                         return;
                     }
-                    OpenContainerAddress += result.Offset;
-                    _log.Info($"[UtocEmulator] Found OpenContainer at 0x{OpenContainerAddress:X}");
-                    _openContainerHook = _hooks.CreateHook<OpenContainerDelegate>(OpenContainer, OpenContainerAddress).Activate();
+                    var openContainerAddress = BaseAddress + result.Offset;
+                    _log.Info($"[UtocEmulator] Found OpenContainer at 0x{openContainerAddress:X}");
+                    _openContainerHook = _hooks.CreateHook<OpenContainerDelegate>(OpenContainer, openContainerAddress).Activate();
+                });
+            } else if (utils.GetReadBlockSig() != null)
+            {
+                scanFactory.AddMainModuleScan(utils.GetReadBlockSig(), result2 =>
+                {
+                    if (!result2.Found)
+                    {
+                        _log.Info($"[UtocEmulator] Unable to find Read Blocks, stuff won't work :(");
+                        return;
+                    }
+                    var readBlocksAddress = BaseAddress + result2.Offset;
+                    _log.Info($"[UtocEmulator] Found OpenContainer at 0x{readBlocksAddress:X}");
+                    unsafe { _readBlocksHook = _hooks.CreateHook<FFileIoStore_ReadBlocks>(ReadBlocks, readBlocksAddress).Activate(); }
                 });
             }
         }
@@ -122,6 +142,17 @@ namespace UTOC.Stream.Emulator
             return returnValue;
         }
 
+        public unsafe void ReadBlocks(nuint thisPtr, FFileIoStoreResolvedRequest* ResolvedRequest)
+        { // This is a temporary measure due to a bug in FileEmulationFramework
+            var currentContainer = ResolvedRequest->ContainerFile->Partitions;
+            var name = Marshal.PtrToStringUni((nint)ResolvedRequest->ContainerFile->FilePath);
+            if (name.Contains(Constants.UnrealEssentialsName))
+            {
+                currentContainer->FileSize = _emu.CasStream.Length;
+            }
+            _readBlocksHook.OriginalFunction(thisPtr, ResolvedRequest);
+        }
+
         #region Standard Overrides
         public override void ConfigurationUpdated(Config configuration)
         {
@@ -140,4 +171,41 @@ namespace UTOC.Stream.Emulator
     }
 
     public delegate bool OpenContainerDelegate(nuint thisPtr, nuint containerFilePath, nuint containerFileHandle, nuint containerFileSize);
+    public unsafe delegate void FFileIoStore_ReadBlocks(nuint thisPtr, FFileIoStoreResolvedRequest* ResolvedRequest);
+
+    [StructLayout(LayoutKind.Explicit, Size = 0x10)]
+    public unsafe struct FFileIoStoreResolvedRequest
+    {
+        [FieldOffset(0x8)] public FFileIoStoreContainerFile* ContainerFile;
+        [FieldOffset(0x10)] public FFileIoStoreReadRequestLink* ReadRequestsHead;
+    }
+
+    [StructLayout(LayoutKind.Explicit, Size = 0x88)]
+    public unsafe struct FFileIoStoreContainerFile
+    {
+        [FieldOffset(0x30)] public nuint FilePath;
+        [FieldOffset(0x88)] public FFileIoStoreContainerFilePartition* Partitions;
+    }
+
+    [StructLayout(LayoutKind.Explicit, Size = 0x10)]
+    public unsafe struct FFileIoStoreContainerFilePartition
+    {
+        [FieldOffset(0x8)] public long FileSize;
+    }
+
+    [StructLayout(LayoutKind.Explicit, Size = 0x10)]
+    public unsafe struct FFileIoStoreReadRequestLink
+    {
+        [FieldOffset(0x0)] public FFileIoStoreReadRequestLink* Next;
+        [FieldOffset(0x8)] public FFileIoStoreReadRequest* ReadRequest;
+    }
+
+    [StructLayout(LayoutKind.Explicit, Size = 0x20)]
+    public unsafe struct FFileIoStoreReadRequest 
+    {
+        [FieldOffset(0x8)] public long FileHandle;
+        [FieldOffset(0x8)] public long FileOffset;
+        [FieldOffset(0x18)] public long FileSize;
+    }
+
 }

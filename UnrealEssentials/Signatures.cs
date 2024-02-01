@@ -11,6 +11,7 @@ public struct Signatures
     internal string IsNonPakFilenameAllowed { get; set; }
     internal string FindFileInPakFiles { get; set; }
     internal string FileIoStoreOpenContainer { get; set; }
+    internal string ReadBlocks { get; set; }
     internal TocType? TocVersion { get; set; }
     internal PakType PakVersion { get; set; }
 
@@ -111,6 +112,7 @@ public struct Signatures
                 IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
                 FindFileInPakFiles = "48 8B C4 53 48 83 EC 50 48 89 68 ?? 48 89 70 ??",
                 FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
+                ReadBlocks = "4C 8B DC 49 89 4B ?? 53 57 41 54",
                 TocVersion = TocType.PartitionSize,
                 PakVersion = PakType.Fn64BugFix
             }
@@ -143,6 +145,7 @@ public struct Signatures
                 PakOpenAsyncRead = "48 89 5C 24 ?? 55 56 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 90 00 00 00 48 8B 05 ?? ?? ?? ??",
                 IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
                 FindFileInPakFiles = "48 8B C4 53 48 83 EC 50 48 89 68 ?? 48 89 70 ??",
+                ReadBlocks = "4C 8B DC 49 89 53 ?? 49 89 4B ?? 53 55",
                 TocVersion = TocType.PartitionSize,
                 PakVersion = PakType.Fn64BugFix
             }
