@@ -12,13 +12,14 @@ using static UnrealEssentials.Unreal.UnrealString;
 using static UnrealEssentials.Unreal.UnrealArray;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 using Reloaded.Mod.Interfaces.Internal;
+using UnrealEssentials.Interfaces;
 
 namespace UnrealEssentials;
 /// <summary>
 /// Your mod logic goes here.
 /// </summary>
 
-public unsafe class Mod : ModBase // <= Do not Remove.
+public unsafe class Mod : ModBase, IExports // <= Do not Remove.
 {
     /// <summary>
     /// Provides access to the mod loader API.
@@ -56,13 +57,22 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private IHook<GetPakOrderDelegate> _getPakOrderHook;
     private IHook<PakOpenReadDelegate> _pakOpenReadHook;
     private IHook<PakOpenAsyncReadDelegate> _pakOpenAsyncReadHook;
+<<<<<<< HEAD
+    private IHook<FindFileInPakFilesDelegate> _findFileInPakFilesHook;
+=======
     private IHook<FindFileInPakFilesDelegate > _findFileInPakFilesHook;
+>>>>>>> master
     private IHook<IsNonPakFilenameAllowedDelegate> _isNonPakFilenameAllowedHook;
 
     private FPakSigningKeys* _signingKeys;
     private string _modsPath;
     private List<string> _pakFolders = new();
     private Dictionary<string, string> _redirections = new();
+<<<<<<< HEAD
+
+    private IUtocUtilities TocUtils;
+=======
+>>>>>>> master
 
     public Mod(ModContext context)
     {
@@ -115,12 +125,19 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         {
             _pakOpenReadHook = _hooks.CreateHook<PakOpenReadDelegate>(PakOpenRead, address).Activate();
         });
-
         SigScan(sigs.PakOpenAsyncRead, "PakOpenAsyncRead", address =>
         {
             _pakOpenAsyncReadHook = _hooks.CreateHook<PakOpenAsyncReadDelegate>(PakOpenAsyncRead, address).Activate();
         });
 
+<<<<<<< HEAD
+=======
+        SigScan(sigs.PakOpenAsyncRead, "PakOpenAsyncRead", address =>
+        {
+            _pakOpenAsyncReadHook = _hooks.CreateHook<PakOpenAsyncReadDelegate>(PakOpenAsyncRead, address).Activate();
+        });
+
+>>>>>>> master
         SigScan(sigs.IsNonPakFilenameAllowed, "IsNonPakFilenameAllowed", address =>
         {
             _isNonPakFilenameAllowedHook = _hooks.CreateHook<IsNonPakFilenameAllowedDelegate>(IsNonPakFilenameAllowed, address).Activate();
@@ -132,7 +149,28 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         });
 
         // Gather pak files from mods
+        //_modLoader.OnModLoaderInitialized += ModLoaderInit;
         _modLoader.ModLoading += ModLoading;
+        // Expose API
+        TocUtils = new Api(
+            sigs, _modLoader.GetDirectoryForModId(_modConfig.ModId), 
+            AddPakFolder, RemovePakFolder);
+        _modLoader.AddOrReplaceController(context.Owner, TocUtils);
+    }
+
+    private bool IsNonPakFilenameAllowed(nuint thisPtr, FString* Filename)
+    {
+        return true;
+    }
+
+    private bool FindFileInPakFiles(nuint* Paks, char* Filename, void** OutPakFile, void* OutEntry)
+    {
+        var fileName = Marshal.PtrToStringUni((nint)Filename);
+
+        if (TryFindLooseFile(fileName, out _))
+            return true;
+
+        return _findFileInPakFilesHook.OriginalFunction(Paks, Filename, OutPakFile, OutEntry);
     }
 
     private bool IsNonPakFilenameAllowed(nuint thisPtr, FString* Filename)
@@ -262,6 +300,38 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     {
         if (modConfig.ModDependencies.Contains(_modConfig.ModId))
         {
+<<<<<<< HEAD
+            var pakPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal");
+            if (Directory.Exists(pakPath)) // Load loose PAK files
+            {
+                AddPakFolder(pakPath);
+            }
+        }
+    }
+
+    private void AddRedirections(string modsPath)
+    {
+        foreach (var file in Directory.EnumerateFiles(modsPath, "*", SearchOption.AllDirectories))
+        {
+            var gamePath = Path.Combine(@"..\..\..", Path.GetRelativePath(modsPath, file)); // recreate what the game would try to load
+            _redirections[gamePath] = file;
+            _redirections[gamePath.Replace('\\', '/')] = file; // UE could try to load it using either separator
+        }
+    }
+
+    private void AddPakFolder(string path)
+    {
+        _pakFolders.Add(path);
+        AddRedirections(path);
+        Log($"Loading PAK files from {path}");
+    }
+
+    private void RemovePakFolder(string path)
+    {
+        if (_pakFolders.Remove(path))
+        {
+            Log($"Removed pak folder {path}");
+=======
             var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal");
             _pakFolders.Add(modsPath);
             AddRedirections(modsPath);
@@ -276,6 +346,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             var gamePath = Path.Combine(@"..\..\..", Path.GetRelativePath(modsPath, file)); // recreate what the game would try to load
             _redirections[gamePath] = file;
             _redirections[gamePath.Replace('\\', '/')] = file; // UE could try to load it using either separator
+>>>>>>> master
         }
     }
 
@@ -306,7 +377,6 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         }
     }
 
-
     #region Standard Overrides
     public override void ConfigurationUpdated(Config configuration)
     {
@@ -322,4 +392,6 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     public Mod() { }
 #pragma warning restore CS8618
     #endregion
+
+    public Type[] GetTypes() => new[] { typeof(IUtocUtilities) };
 }

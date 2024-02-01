@@ -7,19 +7,21 @@
     <LangVersion>10.0</LangVersion>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-    <OutputPath>$(RELOADEDIIMODS)/UnrealEssentials</OutputPath>
+	<OutputPath>$(RELOADEDIIMODS)/UTOC.Stream.Emulator</OutputPath>
     <ImplicitUsings>enable</ImplicitUsings>
 
     <!-- IL Trimming Support for Framework Dependent Apps. Unofficial.
          If you set this to true, trimming will be enabled when you publish the mod.
          Test trimming with: `BuildLinked.ps1` in PowerShell. -->
-    <ReloadedILLink>false</ReloadedILLink>
+    <ReloadedILLink>true</ReloadedILLink>
   </PropertyGroup>
 
   <ItemGroup>
-    <ReloadedLinkRoots Include="UnrealEssentials" />
+    <ReloadedLinkRoots Include="UTOC.Stream.Emulator" />
     <!-- Add assemblies to be trimmed. You might need to add their dependencies too!  -->
     <!-- <ReloadedLinkAssemblies Include="Reloaded.Memory" /> -->
+	<ReloadedLinkAssemblies Include="Reloaded.Hooks.Definitions" />
+	<ReloadedLinkAssemblies Include="FileEmulationFramework.Lib" />
   </ItemGroup>
 
   <Import Project="Reloaded.Trimming.targets" />
@@ -29,8 +31,7 @@
     <None Remove="ModConfig.json" />
     <None Remove="Publish.ps1" />
     <None Remove="BuildLinked.ps1" />
-	  <None Remove="changelog-template.hbs" />
-	  <None Remove="Reloaded.Trimming.targets" />
+    <None Remove="Reloaded.Trimming.targets" />
     <None Remove="Reloaded.Checks.targets" />
   </ItemGroup>
 
@@ -44,14 +45,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Reloaded.Memory.Sigscan" Version="3.1.8" />
+    <PackageReference Include="FileEmulationFramework.Interfaces" Version="2.0.0" />
+    <PackageReference Include="FileEmulationFramework.Lib" Version="1.1.1" />
     <PackageReference Include="Reloaded.Mod.Interfaces" Version="2.4.0" ExcludeAssets="runtime" />
     <PackageReference Include="Reloaded.SharedLib.Hooks" Version="1.9.0" />
 	<PackageReference Include="Reloaded.Memory.SigScan.ReloadedII.Interfaces" Version="1.2.0" />
   </ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\UnrealEssentials.Interfaces\UnrealEssentials.Interfaces.csproj"/>
-	</ItemGroup>
-
+<ItemGroup>
+	<ProjectReference Include="..\..\UnrealEssentials.Interfaces\UnrealEssentials.Interfaces.csproj" />
+</ItemGroup>
 </Project>
