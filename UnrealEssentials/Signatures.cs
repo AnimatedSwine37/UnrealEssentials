@@ -10,13 +10,10 @@ public struct Signatures
     internal string PakOpenAsyncRead { get; set; }
     internal string IsNonPakFilenameAllowed { get; set; }
     internal string FindFileInPakFiles { get; set; }
-<<<<<<< HEAD
     internal string FileIoStoreOpenContainer { get; set; }
     internal string ReadBlocks { get; set; }
     internal TocType? TocVersion { get; set; }
     internal PakType PakVersion { get; set; }
-=======
->>>>>>> master
 
     internal static Dictionary<string, Signatures> VersionSigs = new()
     {
@@ -81,11 +78,8 @@ public struct Signatures
                 PakOpenAsyncRead = "40 55 57 41 56 41 57 48 81 EC 98 00 00 00",
                 IsNonPakFilenameAllowed = "48 8B C4 55 41 55 48 8D 68 ?? 48 81 EC 98 00 00 00",
                 FindFileInPakFiles = "48 8B C4 4C 89 48 ?? 4C 89 40 ?? 55 53 48 8B EC",
-<<<<<<< HEAD
                 TocVersion = TocType.Initial,
                 PakVersion = PakType.FrozenIndex
-=======
->>>>>>> master
             }
         },
         {
@@ -100,12 +94,9 @@ public struct Signatures
                 PakOpenAsyncRead = "48 89 6C 24 ?? 56 57 41 56 48 81 EC 90 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 ?? ?? ?? ?? 48 8B EA",
                 IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
                 FindFileInPakFiles = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 4C 89 44 24 ?? 57 41 54 41 55 41 56 41 57 48 83 EC 30 33 ED",
-<<<<<<< HEAD
                 FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
                 TocVersion = TocType.DirectoryIndex,
                 PakVersion = PakType.Fn64BugFix
-=======
->>>>>>> master
             }
         },
         {
@@ -120,13 +111,10 @@ public struct Signatures
                 PakOpenAsyncRead = "48 89 5C 24 ?? 55 56 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 90 00 00 00 48 8B 05 ?? ?? ?? ??",
                 IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
                 FindFileInPakFiles = "48 8B C4 53 48 83 EC 50 48 89 68 ?? 48 89 70 ??",
-<<<<<<< HEAD
                 FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
                 ReadBlocks = "4C 8B DC 49 89 4B ?? 53 57 41 54",
                 TocVersion = TocType.PartitionSize,
                 PakVersion = PakType.Fn64BugFix
-=======
->>>>>>> master
             }
         },
         {
@@ -141,11 +129,8 @@ public struct Signatures
                 PakOpenAsyncRead = "40 55 53 56 57 41 54 41 55 48 8D 6C 24 ?? 48 81 EC A8 00 00 00",
                 IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
                 FindFileInPakFiles = "48 8B C4 4C 89 48 ?? 4C 89 40 ?? 55 53 48 8B EC",
-<<<<<<< HEAD
                 TocVersion = TocType.DirectoryIndex,
                 PakVersion = PakType.FrozenIndex
-=======
->>>>>>> master
             }
         },
         {
@@ -160,12 +145,9 @@ public struct Signatures
                 PakOpenAsyncRead = "48 89 5C 24 ?? 55 56 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 90 00 00 00 48 8B 05 ?? ?? ?? ??",
                 IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
                 FindFileInPakFiles = "48 8B C4 53 48 83 EC 50 48 89 68 ?? 48 89 70 ??",
-<<<<<<< HEAD
                 ReadBlocks = "4C 8B DC 49 89 53 ?? 49 89 4B ?? 53 55",
                 TocVersion = TocType.PartitionSize,
                 PakVersion = PakType.Fn64BugFix
-=======
->>>>>>> master
             }
         },
         {
@@ -176,19 +158,12 @@ public struct Signatures
                 GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
                 GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ??",
                 GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 08 00",
-<<<<<<< HEAD
                 PakOpenRead ="48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ?? 48 8D 59 ??",
                 PakOpenAsyncRead = "40 55 53 56 57 41 54 41 55 48 8D 6C 24 ?? 48 81 EC A8 00 00 00",
                 IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
                 FindFileInPakFiles = "48 8B C4 4C 89 48 ?? 4C 89 40 ?? 55 53 48 8B EC",
                 TocVersion = TocType.Initial,
                 PakVersion = PakType.FrozenIndex
-=======
-                PakOpenRead = "48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ?? 48 8D 59 ??",
-                PakOpenAsyncRead = "40 55 53 56 57 41 54 41 55 48 8D 6C 24 ?? 48 81 EC A8 00 00 00",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
-                FindFileInPakFiles = "48 8B C4 4C 89 48 ?? 4C 89 40 ?? 55 53 48 8B EC",
->>>>>>> master
             }
         },
     };

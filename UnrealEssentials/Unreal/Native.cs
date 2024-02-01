@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 ﻿using System.Runtime.InteropServices;
-=======
-﻿using System;
->>>>>>> master
 using static UnrealEssentials.Unreal.UnrealArray;
 using static UnrealEssentials.Unreal.UnrealString;
 

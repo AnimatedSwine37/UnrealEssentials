@@ -57,22 +57,15 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     private IHook<GetPakOrderDelegate> _getPakOrderHook;
     private IHook<PakOpenReadDelegate> _pakOpenReadHook;
     private IHook<PakOpenAsyncReadDelegate> _pakOpenAsyncReadHook;
-<<<<<<< HEAD
     private IHook<FindFileInPakFilesDelegate> _findFileInPakFilesHook;
-=======
-    private IHook<FindFileInPakFilesDelegate > _findFileInPakFilesHook;
->>>>>>> master
     private IHook<IsNonPakFilenameAllowedDelegate> _isNonPakFilenameAllowedHook;
 
     private FPakSigningKeys* _signingKeys;
     private string _modsPath;
     private List<string> _pakFolders = new();
     private Dictionary<string, string> _redirections = new();
-<<<<<<< HEAD
 
     private IUtocUtilities TocUtils;
-=======
->>>>>>> master
 
     public Mod(ModContext context)
     {
@@ -130,14 +123,6 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
             _pakOpenAsyncReadHook = _hooks.CreateHook<PakOpenAsyncReadDelegate>(PakOpenAsyncRead, address).Activate();
         });
 
-<<<<<<< HEAD
-=======
-        SigScan(sigs.PakOpenAsyncRead, "PakOpenAsyncRead", address =>
-        {
-            _pakOpenAsyncReadHook = _hooks.CreateHook<PakOpenAsyncReadDelegate>(PakOpenAsyncRead, address).Activate();
-        });
-
->>>>>>> master
         SigScan(sigs.IsNonPakFilenameAllowed, "IsNonPakFilenameAllowed", address =>
         {
             _isNonPakFilenameAllowedHook = _hooks.CreateHook<IsNonPakFilenameAllowedDelegate>(IsNonPakFilenameAllowed, address).Activate();
@@ -156,21 +141,6 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
             sigs, _modLoader.GetDirectoryForModId(_modConfig.ModId), 
             AddPakFolder, RemovePakFolder);
         _modLoader.AddOrReplaceController(context.Owner, TocUtils);
-    }
-
-    private bool IsNonPakFilenameAllowed(nuint thisPtr, FString* Filename)
-    {
-        return true;
-    }
-
-    private bool FindFileInPakFiles(nuint* Paks, char* Filename, void** OutPakFile, void* OutEntry)
-    {
-        var fileName = Marshal.PtrToStringUni((nint)Filename);
-
-        if (TryFindLooseFile(fileName, out _))
-            return true;
-
-        return _findFileInPakFilesHook.OriginalFunction(Paks, Filename, OutPakFile, OutEntry);
     }
 
     private bool IsNonPakFilenameAllowed(nuint thisPtr, FString* Filename)
@@ -300,7 +270,6 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     {
         if (modConfig.ModDependencies.Contains(_modConfig.ModId))
         {
-<<<<<<< HEAD
             var pakPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal");
             if (Directory.Exists(pakPath)) // Load loose PAK files
             {
@@ -331,22 +300,6 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         if (_pakFolders.Remove(path))
         {
             Log($"Removed pak folder {path}");
-=======
-            var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal");
-            _pakFolders.Add(modsPath);
-            AddRedirections(modsPath);
-            Log($"Loading files from {modsPath}");
-        }
-    }
-
-    private void AddRedirections(string modsPath)
-    {
-        foreach(var file in Directory.EnumerateFiles(modsPath, "*", SearchOption.AllDirectories))
-        {
-            var gamePath = Path.Combine(@"..\..\..", Path.GetRelativePath(modsPath, file)); // recreate what the game would try to load
-            _redirections[gamePath] = file;
-            _redirections[gamePath.Replace('\\', '/')] = file; // UE could try to load it using either separator
->>>>>>> master
         }
     }
 
