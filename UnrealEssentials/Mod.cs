@@ -3,6 +3,7 @@ using Reloaded.Memory.Sigscan;
 using Reloaded.Mod.Interfaces;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Reloaded.Memory.Sigscan.Definitions;
 using UnrealEssentials.Configuration;
 using UnrealEssentials.Template;
 using static UnrealEssentials.Unreal.Native;
@@ -152,8 +153,8 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
     private Signatures GetSignatures()
     {
-        var CurrentProcess = Process.GetCurrentProcess();
-        var mainModule = CurrentProcess.MainModule;
+        var currentProcess = Process.GetCurrentProcess();
+        var mainModule = currentProcess.MainModule;
         var fileName = Path.GetFileName(mainModule!.FileName);
 
         // Try and find based on file name
@@ -161,7 +162,8 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             return sigs;
 
         // Try and find based on branch name
-        var scanner = new Scanner(CurrentProcess, mainModule);
+        _modLoader.GetController<IScannerFactory>().TryGetTarget(out var factory);
+        var scanner = factory!.CreateScanner(currentProcess, mainModule);
         var res = scanner.FindPattern("2B 00 2B 00 55 00 45 00 34 00 2B 00"); // ++UE4+
         if (!res.Found)
         {
