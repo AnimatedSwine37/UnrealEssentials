@@ -58,7 +58,8 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     private IHook<GetPakOrderDelegate> _getPakOrderHook;
     private IHook<PakOpenReadDelegate> _pakOpenReadHook;
     private IHook<PakOpenAsyncReadDelegate> _pakOpenAsyncReadHook;
-    private IHook<FindFileInPakFilesDelegate> _findFileInPakFilesHook;
+    private IHook<FindFileInPakFilesDelegate> _findFileInPakFilesHookInner;
+    private IHook<FindFileInPakFilesDelegateOuter> _findFileInPakFilesHookOuter;
     private IHook<IsNonPakFilenameAllowedDelegate> _isNonPakFilenameAllowedHook;
 
     private FPakSigningKeys* _signingKeys;
@@ -128,10 +129,20 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         {
             _isNonPakFilenameAllowedHook = _hooks.CreateHook<IsNonPakFilenameAllowedDelegate>(IsNonPakFilenameAllowed, address).Activate();
         });
-        SigScan(sigs.FindFileInPakFiles, "FindFileInPakFiles", address =>
+        if (sigs.FindFileInPakFilesInner != null) {
+            SigScan(sigs.FindFileInPakFilesInner, "FindFileInPakFilesInner", address =>
+            {
+                _findFileInPakFilesHookInner = _hooks.CreateHook<FindFileInPakFilesDelegate>(FindFileInPakFilesInner, address).Activate();
+            });
+        } else if (sigs.FindFileInPakFilesOuter != null) {
+            SigScan(sigs.FindFileInPakFilesOuter, "FindFileInPakFilesOuter", address =>
+            {
+                _findFileInPakFilesHookOuter = _hooks.CreateHook<FindFileInPakFilesDelegateOuter>(FindFileInPakFilesOuter, address).Activate();
+            });
+        } else
         {
-            _findFileInPakFilesHook = _hooks.CreateHook<FindFileInPakFilesDelegate>(FindFileInPakFiles, address).Activate();
-        });
+            LogError("FindFileInPakFiles is missing, stuff won't work :(");
+        }
 
         // Gather pak files from mods
         //_modLoader.OnModLoaderInitialized += ModLoaderInit;
@@ -147,15 +158,18 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     {
         return true;
     }
-
-    private bool FindFileInPakFiles(nuint* Paks, char* Filename, void** OutPakFile, void* OutEntry)
+    private bool FindFileInPakFilesInternal(char* Filename)
     {
         var fileName = Marshal.PtrToStringUni((nint)Filename);
-
-        if (TryFindLooseFile(fileName, out _))
-            return true;
-
-        return _findFileInPakFilesHook.OriginalFunction(Paks, Filename, OutPakFile, OutEntry);
+        return TryFindLooseFile(fileName, out _) ? true : false;
+    }
+    private bool FindFileInPakFilesOuter(nuint* This, char* Filename, void** OutPakFile, void* OutEntry)
+    {
+        return FindFileInPakFilesInternal(Filename) ? true : _findFileInPakFilesHookOuter.OriginalFunction(This, Filename, OutPakFile, OutEntry);
+    }
+    private bool FindFileInPakFilesInner(nuint* Paks, char* Filename, void** OutPakFile, void* OutEntry)
+    {
+        return FindFileInPakFilesInternal(Filename) ? true : _findFileInPakFilesHookInner.OriginalFunction(Paks, Filename, OutPakFile, OutEntry);
     }
 
     private Signatures GetSignatures()
