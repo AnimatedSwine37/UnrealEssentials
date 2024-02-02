@@ -53,17 +53,21 @@ internal unsafe class Utils
 
     internal static void SigScan(string pattern, string name, Action<nint> action)
     {
-        _startupScanner.AddMainModuleScan(pattern, result =>
-        {
-            if (!result.Found)
+        if (pattern != null) {
+            _startupScanner.AddMainModuleScan(pattern, result =>
             {
-                LogError($"Unable to find {name}, stuff won't work :(");
-                return;
-            }
-            LogDebug($"Found {name} at 0x{result.Offset + BaseAddress:X}");
+                if (!result.Found)
+                {
+                    LogError($"Unable to find {name}, stuff won't work :(");
+                    return;
+                }
+                LogDebug($"Found {name} at 0x{result.Offset + BaseAddress:X}");
 
-            action(result.Offset + BaseAddress);
-        });
+                action(result.Offset + BaseAddress);
+            });
+        } else {
+            LogError($"{name} doesn't exist, stuff won't work :(");
+        }
     }
 
     // Pushes the value of an xmm register to the stack, saving it so it can be restored with PopXmm

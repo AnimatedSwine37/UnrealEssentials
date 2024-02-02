@@ -127,7 +127,6 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         {
             _isNonPakFilenameAllowedHook = _hooks.CreateHook<IsNonPakFilenameAllowedDelegate>(IsNonPakFilenameAllowed, address).Activate();
         });
-
         SigScan(sigs.FindFileInPakFiles, "FindFileInPakFiles", address =>
         {
             _findFileInPakFilesHook = _hooks.CreateHook<FindFileInPakFilesDelegate>(FindFileInPakFiles, address).Activate();

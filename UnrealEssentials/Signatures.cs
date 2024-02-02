@@ -166,5 +166,22 @@ public struct Signatures
                 PakVersion = PakType.FrozenIndex
             }
         },
+        {
+            "P3R.exe", // Persona 3 Reload (Modified 4.27)
+            new Signatures
+            {
+                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F8 39 70 ??",
+                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
+                GMalloc = "48 8B 0D ?? ?? ?? ?? 48 8B 01 FF 50 ?? 33 F6", // in FEngineLoop::Tick
+                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 ?? 00",
+                PakOpenRead = "4C 8B DC 55 53 57 41 54 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
+                PakOpenAsyncRead = "40 53 55 56 41 56 41 57 48 81 EC 90 00 00 00",
+                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
+                FindFileInPakFiles = null, // FindFileInPakFiles is inlined :naosmiley:
+                FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
+                TocVersion = TocType.PartitionSize,
+                PakVersion = PakType.Fn64BugFix
+            }
+        },
     };
 }
