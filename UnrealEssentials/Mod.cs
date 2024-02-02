@@ -13,6 +13,7 @@ using static UnrealEssentials.Unreal.UnrealArray;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 using Reloaded.Mod.Interfaces.Internal;
 using UnrealEssentials.Interfaces;
+using Reloaded.Memory.Sigscan.Definitions;
 
 namespace UnrealEssentials;
 /// <summary>
@@ -168,7 +169,8 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
             return sigs;
 
         // Try and find based on branch name
-        var scanner = new Scanner(CurrentProcess, mainModule);
+        _modLoader.GetController<IScannerFactory>().TryGetTarget(out var scannerFactory);
+        var scanner = scannerFactory.CreateScanner(CurrentProcess, mainModule);
         var res = scanner.FindPattern("2B 00 2B 00 55 00 45 00 34 00 2B 00"); // ++UE4+
         if (!res.Found)
         {
