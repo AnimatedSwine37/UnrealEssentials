@@ -4,3 +4,18 @@ members = [
     "fileemu-utoc-stream-emulator"
 ]
 resolver = "2"
+
+# Profile Build
+[profile.profile]
+inherits = "release"
+debug = true
+codegen-units = 1
+lto = true
+strip = false  # No stripping!!
+
+# Optimized Release Build
+[profile.release]
+codegen-units = 1
+lto = "fat"
+strip = true  # Automatically strip symbols from the binary.
+panic = "abort"
