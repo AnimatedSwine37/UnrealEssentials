@@ -58,9 +58,8 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     private IHook<GetPakOrderDelegate> _getPakOrderHook;
     private IHook<PakOpenReadDelegate> _pakOpenReadHook;
     private IHook<PakOpenAsyncReadDelegate> _pakOpenAsyncReadHook;
-    private IHook<FindFileInPakFilesDelegate> _findFileInPakFilesHookInner;
-    private IHook<FindFileInPakFilesDelegateOuter> _findFileInPakFilesHookOuter;
     private IHook<IsNonPakFilenameAllowedDelegate> _isNonPakFilenameAllowedHook;
+    private IHook<FileExistsDlegate> _fileExistsHook;
 
     private FPakSigningKeys* _signingKeys;
     private string _modsPath;
@@ -129,20 +128,11 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         {
             _isNonPakFilenameAllowedHook = _hooks.CreateHook<IsNonPakFilenameAllowedDelegate>(IsNonPakFilenameAllowed, address).Activate();
         });
-        if (sigs.FindFileInPakFilesInner != null) {
-            SigScan(sigs.FindFileInPakFilesInner, "FindFileInPakFilesInner", address =>
-            {
-                _findFileInPakFilesHookInner = _hooks.CreateHook<FindFileInPakFilesDelegate>(FindFileInPakFilesInner, address).Activate();
-            });
-        } else if (sigs.FindFileInPakFilesOuter != null) {
-            SigScan(sigs.FindFileInPakFilesOuter, "FindFileInPakFilesOuter", address =>
-            {
-                _findFileInPakFilesHookOuter = _hooks.CreateHook<FindFileInPakFilesDelegateOuter>(FindFileInPakFilesOuter, address).Activate();
-            });
-        } else
+
+        SigScan(sigs.FileExists, "FileExists", address =>
         {
-            LogError("FindFileInPakFiles is missing, stuff won't work :(");
-        }
+            _fileExistsHook = _hooks.CreateHook<FileExistsDlegate>(FileExists, address).Activate();
+        });
 
         // Gather pak files from mods
         //_modLoader.OnModLoaderInitialized += ModLoaderInit;
@@ -153,23 +143,20 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
             AddPakFolder, RemovePakFolder);
         _modLoader.AddOrReplaceController(context.Owner, TocUtils);
     }
+  
+    private bool FileExists(nuint thisPtr, char* Filename)
+    {
+        var fileName = Marshal.PtrToStringUni((nint)Filename);
+
+        if (TryFindLooseFile(fileName, out _))
+            return true;
+
+        return _fileExistsHook.OriginalFunction(thisPtr, Filename);
+    }
 
     private bool IsNonPakFilenameAllowed(nuint thisPtr, FString* Filename)
     {
         return true;
-    }
-    private bool FindFileInPakFilesInternal(char* Filename)
-    {
-        var fileName = Marshal.PtrToStringUni((nint)Filename);
-        return TryFindLooseFile(fileName, out _) ? true : false;
-    }
-    private bool FindFileInPakFilesOuter(nuint* This, char* Filename, void** OutPakFile, void* OutEntry)
-    {
-        return FindFileInPakFilesInternal(Filename) ? true : _findFileInPakFilesHookOuter.OriginalFunction(This, Filename, OutPakFile, OutEntry);
-    }
-    private bool FindFileInPakFilesInner(nuint* Paks, char* Filename, void** OutPakFile, void* OutEntry)
-    {
-        return FindFileInPakFilesInternal(Filename) ? true : _findFileInPakFilesHookInner.OriginalFunction(Paks, Filename, OutPakFile, OutEntry);
     }
 
     private Signatures GetSignatures()
@@ -285,11 +272,10 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     {
         if (modConfig.ModDependencies.Contains(_modConfig.ModId))
         {
-            var pakPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "Unreal");
-            if (Directory.Exists(pakPath)) // Load loose PAK files
-            {
-                AddPakFolder(pakPath);
-            }
+            var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "UnrealEssentials", "PAK");
+            _pakFolders.Add(modsPath);
+            AddRedirections(modsPath);
+            Log($"Loading files from {modsPath}");
         }
     }
 
