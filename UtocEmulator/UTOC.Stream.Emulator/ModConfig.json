@@ -3,7 +3,7 @@
   "ModName": "IO Store Emulator",
   "ModAuthor": "Rirurin",
   "ModVersion": "0.1.0",
-  "ModDescription": "Simulates Unreal Engine IO Store files (.utoc + .ucas). Allows mods to add or replace existing files using files on disk",
+  "ModDescription": "Simulates Unreal Engine IO Store files (.utoc \u002B .ucas). Allows mods to add or replace existing files using files on disk",
   "ModDll": "UTOC.Stream.Emulator.dll",
   "ModIcon": "Preview.png",
   "ModR2RManagedDll32": "x86/UTOC.Stream.Emulator.dll",
@@ -15,12 +15,50 @@
   "HasExports": null,
   "IsLibrary": true,
   "ReleaseMetadataFileName": "UTOC.Stream.Emulator.ReleaseMetadata.json",
-  "PluginData": {},
+  "PluginData": {
+    "GitHubRelease": {
+      "UserName": "AnimatedSwine37",
+      "RepositoryName": "UnrealEssentials",
+      "UseReleaseTag": true,
+      "AssetFileName": "Mod.zip"
+    },
+    "GitHubDependencies": {
+      "IdToConfigMap": {
+        "Reloaded.Memory.SigScan.ReloadedII": {
+          "Config": {
+            "UserName": "Reloaded-Project",
+            "RepositoryName": "Reloaded.Memory.SigScan",
+            "UseReleaseTag": false,
+            "AssetFileName": "Mod.zip"
+          },
+          "ReleaseMetadataName": "Reloaded.Memory.SigScan.ReloadedII.ReleaseMetadata.json"
+        },
+        "reloaded.sharedlib.hooks": {
+          "Config": {
+            "UserName": "Sewer56",
+            "RepositoryName": "Reloaded.SharedLib.Hooks.ReloadedII",
+            "UseReleaseTag": true,
+            "AssetFileName": "reloaded.sharedlib.hooks.zip"
+          },
+          "ReleaseMetadataName": "Sewer56.Update.ReleaseMetadata.json"
+        },
+        "reloaded.universal.fileemulationframework": {
+          "Config": {
+            "UserName": "Sewer56",
+            "RepositoryName": "FileEmulationFramework",
+            "UseReleaseTag": false,
+            "AssetFileName": "Mod.zip"
+          },
+          "ReleaseMetadataName": "Reloaded.Universal.FileEmulationFramework.ReleaseMetadata.json"
+        }
+      }
+    }
+  },
   "IsUniversalMod": true,
   "ModDependencies": [
+    "Reloaded.Memory.SigScan.ReloadedII",
     "reloaded.sharedlib.hooks",
-    "reloaded.universal.fileemulationframework",
-    "Reloaded.Memory.SigScan.ReloadedII"
+    "reloaded.universal.fileemulationframework"
   ],
   "OptionalDependencies": [],
   "SupportedAppId": [],
