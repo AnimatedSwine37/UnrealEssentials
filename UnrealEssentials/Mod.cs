@@ -67,6 +67,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private Dictionary<string, string> _redirections = new();
 
     private IUtocEmulator _utocEmulator;
+    private bool _hasUtocs;
 
     public Mod(ModContext context)
     {
@@ -91,6 +92,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
         // Get Signatures
         var sigs = GetSignatures();
+        _hasUtocs = DoesGameUseUtocs(sigs);
 
         _modLoader.GetController<IUtocEmulator>().TryGetTarget(out _utocEmulator);
         _utocEmulator.Initialise(sigs.TocVersion, sigs.PakVersion, sigs.FileIoStoreOpenContainer, sigs.ReadBlocks, AddPakFolder, RemovePakFolder);
@@ -140,6 +142,23 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         // Gather pak files from mods
         //_modLoader.OnModLoaderInitialized += ModLoaderInit;
         _modLoader.ModLoading += ModLoading;
+    }
+
+    private bool DoesGameUseUtocs(Signatures sigs)
+    {
+        if (sigs.TocVersion == null)
+        {
+            Log("Game does not use UTOCs as TocVersion was null");
+        }
+
+        // Look for any utoc files in the game's folder
+        if(Directory.GetFiles("../../..", "*.utoc", SearchOption.AllDirectories).Length == 0)
+        {
+            Log("Game does not include any UTOC files");
+            return false;
+        }
+
+        return true;
     }
   
     private bool FileExists(nuint thisPtr, char* Filename)
@@ -271,11 +290,13 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         if (modConfig.ModDependencies.Contains(_modConfig.ModId))
         {
             var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "UnrealEssentials");
-            var pakPath = Path.Combine(modsPath, "PAK");
-            _pakFolders.Add(pakPath);
-            AddRedirections(pakPath);
-            _utocEmulator.AddFromFolder(modConfig.ModId, Path.Combine(modsPath, "UTOC"));
+            _pakFolders.Add(modsPath);
+            AddRedirections(modsPath);
             Log($"Loading files from {modsPath}");
+
+            // Prevent UTOC Emulator from wasting time creating UTOCs if the game doesn't use them
+            if(_hasUtocs)
+                _utocEmulator.AddFromFolder(modConfig.ModId, modsPath);
         }
     }
 
