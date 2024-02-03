@@ -12,15 +12,15 @@ using static UnrealEssentials.Unreal.UnrealString;
 using static UnrealEssentials.Unreal.UnrealArray;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 using Reloaded.Mod.Interfaces.Internal;
-using UnrealEssentials.Interfaces;
 using Reloaded.Memory.Sigscan.Definitions;
+using UTOC.Stream.Emulator.Interfaces;
 
 namespace UnrealEssentials;
 /// <summary>
 /// Your mod logic goes here.
 /// </summary>
 
-public unsafe class Mod : ModBase, IExports // <= Do not Remove.
+public unsafe class Mod : ModBase // <= Do not Remove.
 {
     /// <summary>
     /// Provides access to the mod loader API.
@@ -66,11 +66,11 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     private List<string> _pakFolders = new();
     private Dictionary<string, string> _redirections = new();
 
-    private IUtocUtilities TocUtils;
+    private IUtocEmulator _utocEmulator;
 
     public Mod(ModContext context)
     {
-        //Debugger.Launch();
+        Debugger.Launch();
         _modLoader = context.ModLoader;
         _hooks = context.Hooks;
         _logger = context.Logger;
@@ -91,6 +91,9 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
 
         // Get Signatures
         var sigs = GetSignatures();
+
+        _modLoader.GetController<IUtocEmulator>().TryGetTarget(out _utocEmulator);
+        _utocEmulator.Initialise(sigs.TocVersion, sigs.PakVersion, sigs.FileIoStoreOpenContainer, sigs.ReadBlocks, AddPakFolder, RemovePakFolder);
 
         InitialiseGMalloc(sigs.GMalloc, _hooks);
 
@@ -137,11 +140,6 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         // Gather pak files from mods
         //_modLoader.OnModLoaderInitialized += ModLoaderInit;
         _modLoader.ModLoading += ModLoading;
-        // Expose API
-        TocUtils = new Api(
-            sigs, _modLoader.GetDirectoryForModId(_modConfig.ModId), 
-            AddPakFolder, RemovePakFolder);
-        _modLoader.AddOrReplaceController(context.Owner, TocUtils);
     }
   
     private bool FileExists(nuint thisPtr, char* Filename)
@@ -272,9 +270,11 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     {
         if (modConfig.ModDependencies.Contains(_modConfig.ModId))
         {
-            var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "UnrealEssentials", "PAK");
-            _pakFolders.Add(modsPath);
-            AddRedirections(modsPath);
+            var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "UnrealEssentials");
+            var pakPath = Path.Combine(modsPath, "PAK");
+            _pakFolders.Add(pakPath);
+            AddRedirections(pakPath);
+            _utocEmulator.AddFromFolder(modConfig.ModId, Path.Combine(modsPath, "UTOC"));
             Log($"Loading files from {modsPath}");
         }
     }
@@ -346,6 +346,4 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
     public Mod() { }
 #pragma warning restore CS8618
     #endregion
-
-    public Type[] GetTypes() => new[] { typeof(IUtocUtilities) };
 }

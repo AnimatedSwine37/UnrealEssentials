@@ -11,5 +11,6 @@
         public void RemovePakFolder(string modsPath);
         public void AddPakFolder(string modsPath);
         public PakType GetPakVersion();
+        public Action<string, string> UtocFolderFound { get; set; }
     }
 }

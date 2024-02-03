@@ -20,8 +20,7 @@
   "ModDependencies": [
     "reloaded.sharedlib.hooks",
     "reloaded.universal.fileemulationframework",
-    "Reloaded.Memory.SigScan.ReloadedII",
-    "UnrealEssentials"
+    "Reloaded.Memory.SigScan.ReloadedII"
   ],
   "OptionalDependencies": [],
   "SupportedAppId": [],

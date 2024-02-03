@@ -1,25 +1,23 @@
 ﻿using FileEmulationFramework.Interfaces;
 using FileEmulationFramework.Lib.Utilities;
 using Reloaded.Hooks.Definitions;
-using Reloaded.Hooks.ReloadedII.Interfaces;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using Reloaded.Mod.Interfaces.Internal;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 using System.Diagnostics;
-using System.Xml.Linq;
-using UnrealEssentials.Interfaces;
 using UTOC.Stream.Emulator.Configuration;
 using UTOC.Stream.Emulator.Template;
 using System.Runtime.InteropServices;
 using Reloaded.Memory.Sigscan.Definitions.Structs;
+using UTOC.Stream.Emulator.Interfaces;
 
 namespace UTOC.Stream.Emulator
 {
     /// <summary>
     /// Your mod logic goes here.
     /// </summary>
-    public class Mod : ModBase // <= Do not Remove.
+    public class Mod : ModBase, IExports // <= Do not Remove.
     {
         /// <summary>
         /// Provides access to the mod loader API.
@@ -60,8 +58,11 @@ namespace UTOC.Stream.Emulator
         private IHook<OpenContainerDelegate> _openContainerHook;
         private IHook<FFileIoStore_ReadBlocks> _readBlocksHook;
 
-        public Mod(ModContext context)
+        private IUtocEmulator _api;
+
+        public Mod(ModContext context) 
         {
+            //Debugger.Launch();
             _modLoader = context.ModLoader;
             _hooks = context.Hooks;
             _logger = context.Logger;
@@ -69,32 +70,38 @@ namespace UTOC.Stream.Emulator
             _configuration = context.Configuration;
             _modConfig = context.ModConfig;
 
-            _modLoader.GetController<IUtocUtilities>().TryGetTarget(out var tocUtils); // For communication with Unreal Essentials
-
             _log = new Logger(_logger, _configuration.LogLevel);
+
+            // Expose API
+            _api = new Api(Initialise, (modId, folder) => _emu.AddFromFolder(modId, folder));
+            _modLoader.AddOrReplaceController(context.Owner, _api);
+        }
+
+        public void Initialise(TocType? tocType, PakType pakType, string fileIoStoreSig, string readBlockSig, Action<string> addPakFolder, Action<string> removePakFolder)
+        {
             _log.Info("Starting UTOC.Stream.Emulator");
             _emu = new UtocEmulator(
-                _log, _configuration.DumpFiles, _modLoader.GetDirectoryForModId(_modConfig.ModId),
-                tocUtils.GetUnrealEssentialsPath(), tocUtils.AddPakFolder
-            );
+                _log, _configuration.DumpFiles, _modLoader.GetDirectoryForModId(_modConfig.ModId), addPakFolder);
 
             _modLoader.ModLoading += OnModLoading;
             _modLoader.OnModLoaderInitialized += OnLoaderInit;
 
             var ctrl_weak = _modLoader.GetController<IEmulationFramework>().TryGetTarget(out var framework);
             _modLoader.GetController<IStartupScanner>().TryGetTarget(out var scanFactory);
-            _emu.TocVersion = tocUtils.GetTocVersion(); // Set Toc Version
-            _emu.PakVersion = tocUtils.GetPakVersion(); // Set Pak Version
+            _emu.TocVersion = tocType; // Set Toc Version
+            _emu.PakVersion = pakType; // Set Pak Version
             framework!.Register(_emu);
             BaseAddress = Process.GetCurrentProcess().MainModule.BaseAddress;
-            ContainerFileSizeOverride(tocUtils, scanFactory);
+            ContainerFileSizeOverride(scanFactory, fileIoStoreSig, readBlockSig);
+
         }
 
-        private void ContainerFileSizeOverride(IUtocUtilities utils, IStartupScanner scanFactory)
+
+        private void ContainerFileSizeOverride(IStartupScanner scanFactory, string fileIoStoreSig, string readBlockSig)
         {
-            if (utils.GetFileIoStoreHookSig() != null)
+            if (fileIoStoreSig != null)
             {
-                scanFactory.AddMainModuleScan(utils.GetFileIoStoreHookSig(), result =>
+                scanFactory.AddMainModuleScan(fileIoStoreSig, result =>
                 {
                     if (!result.Found)
                     {
@@ -105,9 +112,9 @@ namespace UTOC.Stream.Emulator
                     _log.Info($"[UtocEmulator] Found OpenContainer at 0x{openContainerAddress:X}");
                     _openContainerHook = _hooks.CreateHook<OpenContainerDelegate>(OpenContainer, openContainerAddress).Activate();
                 });
-            } else if (utils.GetReadBlockSig() != null)
+            } else if (readBlockSig != null)
             {
-                scanFactory.AddMainModuleScan(utils.GetReadBlockSig(), result2 =>
+                scanFactory.AddMainModuleScan(readBlockSig, result2 =>
                 {
                     if (!result2.Found)
                     {
@@ -168,6 +175,8 @@ namespace UTOC.Stream.Emulator
         public Mod() { }
 #pragma warning restore CS8618
         #endregion
+
+        public Type[] GetTypes() => new[] { typeof(IUtocEmulator) };
     }
 
     public delegate bool OpenContainerDelegate(nuint thisPtr, nuint containerFilePath, nuint containerFileHandle, nuint containerFileSize);

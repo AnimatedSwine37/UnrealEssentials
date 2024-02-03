@@ -1,4 +1,5 @@
-﻿using UnrealEssentials.Interfaces;
+﻿using UTOC.Stream.Emulator.Interfaces;
+
 namespace UnrealEssentials;
 public struct Signatures
 {

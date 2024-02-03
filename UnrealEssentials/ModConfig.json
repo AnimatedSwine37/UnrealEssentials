@@ -16,7 +16,8 @@
   "IsUniversalMod": true,
   "ModDependencies": [
     "reloaded.sharedlib.hooks",
-    "Reloaded.Memory.SigScan.ReloadedII"
+    "Reloaded.Memory.SigScan.ReloadedII",
+    "UTOC.Stream.Emulator"
   ],
   "OptionalDependencies": [],
   "SupportedAppId": [ ],

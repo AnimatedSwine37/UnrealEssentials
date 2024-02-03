@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnrealEssentials", "UnrealE
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UTOC.Stream.Emulator", "UtocEmulator\UTOC.Stream.Emulator\UTOC.Stream.Emulator.csproj", "{D5C1D2F8-8D15-458C-9912-C880955B23DD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnrealEssentials.Interfaces", "UnrealEssentials.Interfaces\UnrealEssentials.Interfaces.csproj", "{2F17FE01-58F2-4267-8F3E-1B8ED060B546}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UTOC.Stream.Emulator.Interfaces", "UTOC.Stream.Emulator.Interfaces\UTOC.Stream.Emulator.Interfaces.csproj", "{F1CCE8FE-F378-414D-8107-80659F6CE5C9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,10 +23,10 @@ Global
 		{D5C1D2F8-8D15-458C-9912-C880955B23DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D5C1D2F8-8D15-458C-9912-C880955B23DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D5C1D2F8-8D15-458C-9912-C880955B23DD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2F17FE01-58F2-4267-8F3E-1B8ED060B546}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2F17FE01-58F2-4267-8F3E-1B8ED060B546}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2F17FE01-58F2-4267-8F3E-1B8ED060B546}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2F17FE01-58F2-4267-8F3E-1B8ED060B546}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F1CCE8FE-F378-414D-8107-80659F6CE5C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1CCE8FE-F378-414D-8107-80659F6CE5C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F1CCE8FE-F378-414D-8107-80659F6CE5C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F1CCE8FE-F378-414D-8107-80659F6CE5C9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

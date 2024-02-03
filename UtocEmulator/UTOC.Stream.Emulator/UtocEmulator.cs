@@ -1,21 +1,11 @@
 ﻿using FileEmulationFramework.Interfaces;
 using FileEmulationFramework.Interfaces.Reference;
-using FileEmulationFramework.Lib;
 using FileEmulationFramework.Lib.IO;
 using FileEmulationFramework.Lib.IO.Struct;
 using FileEmulationFramework.Lib.Utilities;
-using Reloaded.Mod.Interfaces;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using UnrealEssentials.Interfaces;
+using UTOC.Stream.Emulator.Interfaces;
 using Strim = System.IO.Stream;
 
 namespace UTOC.Stream.Emulator
@@ -36,7 +26,6 @@ namespace UTOC.Stream.Emulator
         public PakType PakVersion { get; set; }
         public Strim? TocStream { get; set; }
         public Strim? CasStream { get; set; }
-        public string UnrealEssentialsPath { get; set; }
         private string ModPath { get; init; }
         private string ModTargetFilesDirectory { get; init; }
         private string ModDummyPakFilesDirectory { get; init; }
@@ -44,11 +33,10 @@ namespace UTOC.Stream.Emulator
 
         private readonly ConcurrentDictionary<string, Strim?> _pathToStream = new(StringComparer.OrdinalIgnoreCase);
 
-        public UtocEmulator(Logger logger, bool canDump, string modPath, string essentialsPath, Action<string> addPakFolderCb) 
+        public UtocEmulator(Logger logger, bool canDump, string modPath, Action<string> addPakFolderCb) 
         { 
             _logger = logger; 
             DumpFiles = canDump;
-            UnrealEssentialsPath = essentialsPath;
             ModPath = modPath;
             ModTargetFilesDirectory = Path.Combine(ModPath, Constants.TargetDir);
             ModDummyPakFilesDirectory = Path.Combine(ModPath, Constants.DummyPakDir);
@@ -201,7 +189,9 @@ namespace UTOC.Stream.Emulator
             _logger.Info($"[UtocEmulator] Container Written To {path}");
         }
 
-        public void OnModLoading(string mod_id, string dir_path) => RustApi.AddFromFolders(mod_id, dir_path);
+        public void OnModLoading(string mod_id, string dir_path) => RustApi.AddFromFolders(mod_id, Path.Combine(dir_path, "UTOC", "UnrealEssentials.utoc"));
+
+        public void AddFromFolder(string mod_id, string dir_path) => RustApi.AddFromFolders(mod_id, dir_path);
 
         public void MakeFilesOnInit() // from base Unreal Essentials path
         {
