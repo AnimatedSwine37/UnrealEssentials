@@ -229,7 +229,7 @@ pub enum TocFileAddType {
     Replacement
 }
 
-pub const SUITABLE_FILE_EXTENSIONS: &'static [&'static str] = ["uasset", "ubulk", "uptnl"].as_slice();
+pub const SUITABLE_FILE_EXTENSIONS: &'static [&'static str] = ["uasset", "ubulk", "uptnl", "umap"].as_slice();
 pub const MOUNT_POINT: &'static str = "../../../";
 pub const GAME_ROOT: &'static str = "Game";
 
