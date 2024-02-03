@@ -70,7 +70,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
     public Mod(ModContext context)
     {
-        Debugger.Launch();
+        //Debugger.Launch();
         _modLoader = context.ModLoader;
         _hooks = context.Hooks;
         _logger = context.Logger;
