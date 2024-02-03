@@ -38,7 +38,7 @@ pub fn add_from_folders(mod_id: &str, mod_path: &str) {
         if let None = *root_dir_lock {
             *root_dir_lock = Some(TocDirectory::new_rc(None));
         }
-        add_from_folders_inner(Arc::clone(&(*root_dir_lock).as_ref().unwrap()), &mod_path, &mut profiler_mod.data);
+        add_from_folders_inner(Arc::clone(&(*root_dir_lock).as_ref().unwrap()), &mod_path, &mut profiler_mod.data, true);
         profiler_mod.set_time_to_tree();
         (*profiler_lock).as_mut().unwrap().mods_loaded.push(profiler_mod);
     }
@@ -231,8 +231,9 @@ pub enum TocFileAddType {
 
 pub const SUITABLE_FILE_EXTENSIONS: &'static [&'static str] = ["uasset", "ubulk", "uptnl"].as_slice();
 pub const MOUNT_POINT: &'static str = "../../../";
+pub const GAME_ROOT: &'static str = "Game";
 
-pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, profiler: &mut AssetCollectorProfilerModContents) {
+pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, profiler: &mut AssetCollectorProfilerModContents, mut first: bool) {
     // We've already checked that this path exists in AddFromFolders, so unwrap directly
     // This folder is equivalent to /[ProjectName]/Content, so our mount point will be
     // at least ../../../[ProjectName] (../../../Game/)
@@ -242,19 +243,27 @@ pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, pr
         match &i {
             Ok(fs_obj) => { // we have our file system object, now determine if it's a directory or folder
                 let fs_obj_os_name = fs_obj.file_name(); // this does assume that the object name is valid Unicode
-                let name = String::from(fs_obj_os_name.to_str().unwrap()); // if it's not i'll be very surprised
+                let mut name = String::from(fs_obj_os_name.to_str().unwrap()); // if it's not i'll be very surprised
                 let file_type = fs_obj.file_type().unwrap();
                 if file_type.is_dir() { // new directory. mods can only expand on this
                     let mut inner_path = PathBuf::from(os_path);
                     inner_path.push(&name);
                     match TocDirectory::get_child_dir(Arc::clone(&parent), &name) {
                         // check through folder regardless since there may be new inner folders in there
-                        Some(child_dir) => add_from_folders_inner(Arc::clone(&child_dir), &inner_path, profiler),
+                        Some(child_dir) => add_from_folders_inner(Arc::clone(&child_dir), &inner_path, profiler, false),
                         None => {
+                            // Set the root directory to Game if it isn't engine so people can use the game name (assuming only Engine and Game)
+                            if first && name != "Engine"
+                            {
+                                first = false;
+                                println!("Setting root directory {} to Game", name);
+                                name = GAME_ROOT.to_string();
+                            }
+
                             // this is a new directory, create it and then check inside it
                             let new_dir = TocDirectory::new_rc(Some((&name).to_owned()));
                             TocDirectory::add_directory(Arc::clone(&parent), Arc::clone(&new_dir));
-                            add_from_folders_inner(Arc::clone(&new_dir), &inner_path, profiler);
+                            add_from_folders_inner(Arc::clone(&new_dir), &inner_path, profiler, false);
                             profiler.add_directory();
                         }
                     }
