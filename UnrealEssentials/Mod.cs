@@ -56,8 +56,8 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private IHook<GetPakOrderDelegate> _getPakOrderHook;
     private IHook<PakOpenReadDelegate> _pakOpenReadHook;
     private IHook<PakOpenAsyncReadDelegate> _pakOpenAsyncReadHook;
-    private IHook<FindFileInPakFilesDelegate > _findFileInPakFilesHook;
     private IHook<IsNonPakFilenameAllowedDelegate> _isNonPakFilenameAllowedHook;
+    private IHook<FileExistsDlegate> _fileExistsHook;
 
     private FPakSigningKeys* _signingKeys;
     private string _modsPath;
@@ -126,28 +126,29 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             _isNonPakFilenameAllowedHook = _hooks.CreateHook<IsNonPakFilenameAllowedDelegate>(IsNonPakFilenameAllowed, address).Activate();
         });
 
-        SigScan(sigs.FindFileInPakFiles, "FindFileInPakFiles", address =>
+        SigScan(sigs.FileExists, "FileExists", address =>
         {
-            _findFileInPakFilesHook = _hooks.CreateHook<FindFileInPakFilesDelegate>(FindFileInPakFiles, address).Activate();
+            _fileExistsHook = _hooks.CreateHook<FileExistsDlegate>(FileExists, address).Activate();
         });
+
 
         // Gather pak files from mods
         _modLoader.ModLoading += ModLoading;
     }
 
-    private bool IsNonPakFilenameAllowed(nuint thisPtr, FString* Filename)
-    {
-        return true;
-    }
-
-    private bool FindFileInPakFiles(nuint* Paks, char* Filename, void** OutPakFile, void* OutEntry)
+    private bool FileExists(nuint thisPtr, char* Filename)
     {
         var fileName = Marshal.PtrToStringUni((nint)Filename);
 
         if (TryFindLooseFile(fileName, out _))
             return true;
 
-        return _findFileInPakFilesHook.OriginalFunction(Paks, Filename, OutPakFile, OutEntry);
+        return _fileExistsHook.OriginalFunction(thisPtr, Filename);
+    }
+
+    private bool IsNonPakFilenameAllowed(nuint thisPtr, FString* Filename)
+    {
+        return true;
     }
 
     private Signatures GetSignatures()
