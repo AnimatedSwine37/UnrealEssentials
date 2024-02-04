@@ -290,6 +290,8 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         if (modConfig.ModDependencies.Contains(_modConfig.ModId))
         {
             var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "UnrealEssentials");
+            if (!Directory.Exists(modsPath))
+                return;
             _pakFolders.Add(modsPath);
             AddRedirections(modsPath);
             Log($"Loading files from {modsPath}");
