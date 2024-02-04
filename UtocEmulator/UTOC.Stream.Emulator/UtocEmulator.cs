@@ -220,6 +220,11 @@ namespace UTOC.Stream.Emulator
                 _logger.Info($"[UtocEmulator] An error occurred while making IO Store data");
                 return;
             }
+            if(blockCount == 0)
+            {
+                _logger.Info($"[UtocEmulator] No IO store files found, not creating emulated file.");
+                return;
+            }
             unsafe
             {
                 TocStream = new UnmanagedMemoryStream((byte*)tocData, (long)tocLength);
