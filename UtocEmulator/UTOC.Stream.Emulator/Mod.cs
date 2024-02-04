@@ -141,7 +141,7 @@ namespace UTOC.Stream.Emulator
             var returnValue = _openContainerHook.OriginalFunction(thisPtr, containerFilePath, containerFileHandle, containerFileSize);
             unsafe
             {
-                if (Marshal.PtrToStringUni((nint)containerFilePath).Contains(Constants.UnrealEssentialsName))
+                if (Marshal.PtrToStringUni((nint)containerFilePath).Contains($"{Constants.UnrealEssentialsName}.{Constants.UcasExtension}"))
                 {
                     *(long*)containerFileSize = _emu.CasStream.Length;
                 }
