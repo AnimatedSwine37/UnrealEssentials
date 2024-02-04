@@ -25,9 +25,13 @@ on:
 env: 
   PUBLISH_COMMON_PATH: ./Publish/ToUpload/
 
-  PUBLISH_GAMEBANANA_PATH: ./Publish/ToUpload/GameBanana
-  PUBLISH_GITHUB_PATH: ./Publish/ToUpload/Generic
-  PUBLISH_NUGET_PATH: ./Publish/ToUpload/NuGet
+  PUBLISH_GAMEBANANA_UE_PATH: ./Publish/ToUpload/UnrealEssentials/GameBanana
+  PUBLISH_GITHUB_UE_PATH: ./Publish/ToUpload/UnrealEssentials/Generic
+  PUBLISH_NUGET_UE_PATH: ./Publish/ToUpload/UnrealEssentials/NuGet
+
+  PUBLISH_GAMEBANANA_UTOC_PATH: ./Publish/ToUpload/UTOC.Stream.Emulator/GameBanana
+  PUBLISH_GITHUB_UTOC_PATH: ./Publish/ToUpload/UTOC.Stream.Emulator/Generic
+  PUBLISH_NUGET_UTOC_PATH: ./Publish/ToUpload/UTOC.Stream.Emulator/NuGet
   
   PUBLISH_CHANGELOG_PATH: ./Publish/Changelog.md
   PUBLISH_PATH: ./Publish
@@ -75,6 +79,13 @@ jobs:
         
     - name: Setup AutoChangelog
       run: npm install -g auto-changelog
+
+    - name: Setup Rust
+      uses: ATiltedTree/setup-rust@v1.0.5
+      with:
+        rust-version: nightly
+        components: rust-src
+        targets: x86_64-pc-windows-msvc
       
     - name: Create Changelog
       run: |
@@ -87,7 +98,7 @@ jobs:
         }
         
     - name: Build
-      run: ./Publish.ps1 -ChangelogPath "$env:PUBLISH_CHANGELOG_PATH"
+      run: ./PublishAll.ps1
       
     - name: Upload GitHub Release Artifact
       uses: actions/upload-artifact@v2.2.4
@@ -96,7 +107,8 @@ jobs:
         name: GitHub Release
         # A file, directory or wildcard pattern that describes what to upload
         path: |
-          ${{ env.PUBLISH_GITHUB_PATH }}/*
+          ${{ env.PUBLISH_GITHUB_UE_PATH }}/*
+          ${{ env.PUBLISH_GITHUB_UTOC_PATH }}/*
           
     - name: Upload GameBanana Release Artifact
       uses: actions/upload-artifact@v2.2.4
@@ -105,7 +117,8 @@ jobs:
         name: GameBanana Release
         # A file, directory or wildcard pattern that describes what to upload
         path: |
-          ${{ env.PUBLISH_GAMEBANANA_PATH }}/*
+          ${{ env.PUBLISH_GAMEBANANA_UE_PATH }}/*
+          ${{ env.PUBLISH_GAMEBANANA_UTOC_PATH }}/*
         
     - name: Upload NuGet Release Artifact
       uses: actions/upload-artifact@v2.2.4
@@ -114,7 +127,8 @@ jobs:
         name: NuGet Release
         # A file, directory or wildcard pattern that describes what to upload
         path: |
-          ${{ env.PUBLISH_NUGET_PATH }}/*
+          ${{ env.PUBLISH_NUGET_UE_PATH }}/*
+          ${{ env.PUBLISH_NUGET_UTOC_PATH }}/*
         
     - name: Upload Changelog Artifact
       uses: actions/upload-artifact@v2.2.4
@@ -133,7 +147,8 @@ jobs:
         body_path: ${{ env.PUBLISH_CHANGELOG_PATH }}
         # Newline-delimited list of path globs for asset files to upload
         files: |
-          ${{ env.PUBLISH_GITHUB_PATH }}/*
+          ${{ env.PUBLISH_GITHUB_UE_PATH }}/*
+          ${{ env.PUBLISH_GITHUB_UTOC_PATH }}/*
         
     - name: Push to NuGet (on Tag)
       env: 
@@ -146,7 +161,7 @@ jobs:
             return
         }
         
-        $items = Get-ChildItem -Path "$env:PUBLISH_NUGET_PATH/*.nupkg"
+        $items = Get-ChildItem -Path "$env:PUBLISH_COMMON_PATH/*.nupkg"
         Foreach ($item in $items)
         {
             Write-Host "Pushing $item"
