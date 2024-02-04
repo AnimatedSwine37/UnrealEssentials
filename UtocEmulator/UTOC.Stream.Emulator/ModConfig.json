@@ -11,8 +11,8 @@
   "ModNativeDll32": "",
   "ModNativeDll64": "",
   "Tags": [],
-  "CanUnload": null,
-  "HasExports": null,
+  "CanUnload": false,
+  "HasExports": true,
   "IsLibrary": true,
   "ReleaseMetadataFileName": "UTOC.Stream.Emulator.ReleaseMetadata.json",
   "PluginData": {
@@ -62,5 +62,5 @@
   ],
   "OptionalDependencies": [],
   "SupportedAppId": [],
-  "ProjectUrl": ""
+  "ProjectUrl": "https://github.com/AnimatedSwine37/UnrealEssentials"
 }

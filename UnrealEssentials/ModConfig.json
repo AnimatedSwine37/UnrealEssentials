@@ -11,8 +11,8 @@
   "ModNativeDll32": "",
   "ModNativeDll64": "",
   "Tags": [],
-  "CanUnload": null,
-  "HasExports": null,
+  "CanUnload": false,
+  "HasExports": false,
   "IsLibrary": false,
   "ReleaseMetadataFileName": "UnrealEssentials.ReleaseMetadata.json",
   "PluginData": {
@@ -76,5 +76,5 @@
     "scarletnexus-win64-shipping.exe",
     "sifu-win64-shipping.exe"
   ],
-  "ProjectUrl": ""
+  "ProjectUrl": "https://github.com/AnimatedSwine37/UnrealEssentials"
 }
