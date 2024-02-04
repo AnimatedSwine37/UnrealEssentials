@@ -31,7 +31,7 @@ pub fn add_from_folders(mod_id: &str, mod_path: &str) {
     if *profiler_lock == None { // Check profiler is active
         *profiler_lock = Some(AssetCollectorProfiler::new());
     }
-    let mod_path: PathBuf = [mod_path].iter().collect();
+    let mod_path: PathBuf = PathBuf::from(mod_path);
     if Path::exists(Path::new(&mod_path)) {
         let mut profiler_mod = AssetCollectorProfilerMod::new(mod_id, mod_path.to_str().unwrap());
         let mut root_dir_lock = ROOT_DIRECTORY.lock().unwrap();
