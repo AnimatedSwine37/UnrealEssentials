@@ -2,12 +2,12 @@
 Split-Path $MyInvocation.MyCommand.Path | Push-Location
 [Environment]::CurrentDirectory = $PWD
 
-Remove-Item "Publish/Builds" -Recurse -ErrorAction SilentlyContinue
-
 ./Publish.ps1 -ProjectPath "UnrealEssentials/UnrealEssentials.csproj" `
               -PackageName "UnrealEssentials" `
               -PublishOutputDir "Publish/ToUpload/UnrealEssentials" `
 			  -ChangelogPath "UnrealEssentials/CHANGELOG.MD" `
+              
+Remove-Item "Publish/Builds" -Recurse -ErrorAction SilentlyContinue
 
 Push-Location "./UtocEmulator/fileemu-utoc-stream-emulator"
 $env:RUSTFLAGS = "-C panic=abort -C lto=fat -C embed-bitcode=yes"
