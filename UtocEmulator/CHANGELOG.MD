@@ -1,3 +1,2 @@
-# 1.0.1
-- Added Nuget update support
-- Fixed GitHub update support
+# 1.0.2
+- Fixed a crash when you tried to replace `.umap` files
