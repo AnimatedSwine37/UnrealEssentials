@@ -276,7 +276,7 @@ pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, pr
                                 // it's a matter of either replacing an existing file or adding a new file
                                 // ,,,at least until we start thinking about merging P3RE persona tables (lol)
                                 Some(io_ext) => {
-                                    if *io_ext == "uasset" { // export bundles - requires checking file header to ensure that it doesn't have the cooked asset signature
+                                    if *io_ext == "uasset" || *io_ext == "umap" { // export bundles - requires checking file header to ensure that it doesn't have the cooked asset signature
                                         let current_file = File::open(fs_obj.path().to_str().unwrap()).unwrap();
                                         let mut file_reader = BufReader::with_capacity(4, current_file);
                                         if !io_package::is_valid_asset_type::<BufReader<File>, byteorder::NativeEndian>(&mut file_reader) {

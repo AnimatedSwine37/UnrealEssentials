@@ -146,7 +146,7 @@ pub trait TocResolverCommon { // Currently for 4.25+, 4.26 and 4.27
             ) {
             Some(io_ext) => {
                 match *io_ext {
-                    "uasset" => IoChunkType4::ExportBundleData, //.uasset
+                    "uasset" | "umap" => IoChunkType4::ExportBundleData, //.uasset, .umap
                     "ubulk" => IoChunkType4::BulkData, // .ubulk
                     "uptnl" => IoChunkType4::OptionalBulkData, // .uptnl
                     _ => panic!("CRITICAL ERROR: Did not get a supported file extension. This should've been handled earlier")
