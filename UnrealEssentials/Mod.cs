@@ -287,8 +287,6 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
     private void ModLoading(IModV1 mod, IModConfigV1 modConfig)
     {
-        if (modConfig.ModDependencies.Contains(_modConfig.ModId))
-        {
             var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "UnrealEssentials");
             if (!Directory.Exists(modsPath))
                 return;
@@ -300,7 +298,6 @@ public unsafe class Mod : ModBase // <= Do not Remove.
             if(_hasUtocs)
                 _utocEmulator.AddFromFolder(modConfig.ModId, modsPath);
         }
-    }
 
     private void AddRedirections(string modsPath)
     {
