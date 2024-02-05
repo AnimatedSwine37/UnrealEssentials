@@ -19,7 +19,7 @@
     "GitHubRelease": {
       "UserName": "AnimatedSwine37",
       "RepositoryName": "UnrealEssentials",
-      "UseReleaseTag": true,
+      "UseReleaseTag": false,
       "AssetFileName": "Mod.zip"
     },
     "GitHubDependencies": {
