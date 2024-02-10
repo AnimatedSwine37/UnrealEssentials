@@ -206,6 +206,7 @@ namespace UTOC.Stream.Emulator
             nint mod_id_unicode = Marshal.StringToHGlobalUni(mod_id);
             RustApi.AddFromFolders(mod_id_unicode, mod_id.Length, mod_path_unicode, dir_path.Length);
             Marshal.FreeHGlobal(mod_path_unicode);
+            Marshal.FreeHGlobal(mod_id_unicode);
         }
 
         public void MakeFilesOnInit() // from base Unreal Essentials path
