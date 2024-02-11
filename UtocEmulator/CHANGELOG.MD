@@ -1,2 +1,2 @@
-# 1.0.2
-- Fixed a crash when you tried to replace `.umap` files
+# 1.0.3
+- Fixed a crash when trying to load utoc files from paths with non ascii characters in them. 
