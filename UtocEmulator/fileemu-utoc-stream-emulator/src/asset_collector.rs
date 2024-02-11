@@ -25,7 +25,6 @@ pub static ASSET_COLLECTOR_PROFILER: Mutex<Option<AssetCollectorProfiler>> = Mut
 
 // Create tree of assets that can be used to build a TOC
 pub fn add_from_folders(mod_id: &str, mod_path: &str) {
-    println!("add from folders: {}, {}", mod_id, mod_path);
     // mod loading happens synchronously, safe to unwrap
     let mut profiler_lock = ASSET_COLLECTOR_PROFILER.lock().unwrap();
     if *profiler_lock == None { // Check profiler is active
@@ -379,17 +378,17 @@ impl AssetCollectorProfilerModContents {
     }
 
     pub fn print(&self) {
-        println!("Created tree in {} ms", self.time_to_tree as f64 / 1000f64);
+        //println!("Created tree in {} ms", self.time_to_tree as f64 / 1000f64);
         println!("{} directories added", self.directory_count);
         println!("{} added files ({} KB)", self.added_files_count, self.added_files_size / 1024);
         println!("{} replaced files ({} KB)", self.replaced_files_count, self.replaced_files_size / 1024);
-        if self.skipped_files.len() > 0 {
-            println!("{}", "-".repeat(80));
-            println!("SKIPPED FILES: {} FILES ({} KB)", self.skipped_files.len(), self.skipped_file_size / 1024);
-            for i in &self.skipped_files {
-                println!("File \"{}\", reason \"{}\"", i.os_path, i.reason);
-            }
-        }
+        //if self.skipped_files.len() > 0 {
+        //    println!("{}", "-".repeat(80));
+        //    println!("SKIPPED FILES: {} FILES ({} KB)", self.skipped_files.len(), self.skipped_file_size / 1024);
+        //    for i in &self.skipped_files {
+        //        println!("File \"{}\", reason \"{}\"", i.os_path, i.reason);
+        //    }
+        //}
         if self.incorrect_asset_header.len() > 0 {
             println!("{}", "-".repeat(AssetCollectorProfiler::get_terminal_length()));
             println!("INCORRECT ASSET FORMAT: {} FILES", self.incorrect_asset_header.len());
@@ -417,7 +416,6 @@ pub struct AssetCollectorProfilerMod {
 
 impl AssetCollectorProfilerMod {
     pub fn new(mod_id: &str, mod_path: &str) -> Self {
-        let modified_os_path = mod_path.split_once("C:\\Users");
         Self {
             uid: mod_id.to_owned(),
             os_path: mod_path.to_owned(),

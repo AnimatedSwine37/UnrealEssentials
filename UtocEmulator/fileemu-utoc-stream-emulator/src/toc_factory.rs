@@ -6,7 +6,6 @@ use std::{
     io, io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
     mem,
     pin::Pin,
-    //rc::{Rc, Weak},
     sync::{Arc, Mutex, MutexGuard, RwLock, Weak},
     time::Instant,
 };
@@ -46,7 +45,9 @@ pub const TOC_NAME:     &'static str = "UnrealEssentials";
 pub const TARGET_TOC:   &'static str = "UnrealEssentials.utoc";
 pub const TARGET_CAS:   &'static str = "UnrealEssentials.ucas";
 
-pub static CONTAINER_ENTRIES_OSPATH_POOL: Mutex<Option<Vec<String>>> = Mutex::new(None);
+//pub static CONTAINER_ENTRIES_OSPATH_POOL: Mutex<Option<Vec<String>>> = Mutex::new(None);
+type ContainerEntriesType = Option<Vec<Vec<u16>>>;
+pub static CONTAINER_ENTRIES_OSPATH_POOL: Mutex<ContainerEntriesType> = Mutex::new(None);
 pub static CONTAINER_DATA: Mutex<Option<ContainerData>> = Mutex::new(None);
 
 pub fn build_table_of_contents(toc_path: &str, version: u32) -> Option<Vec<u8>> {
@@ -65,28 +66,6 @@ pub fn build_table_of_contents(toc_path: &str, version: u32) -> Option<Vec<u8>> 
         None // Not our target TOC
     }
 }
-/* 
-pub fn build_container_test(cas_path: &str) {
-    use std::ffi::CStr;
-    use byteorder::WriteBytesExt;
-    let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
-
-    let container_data = unsafe { CONTAINER_DATA.as_ref().unwrap() };
-    for i in &container_data.virtual_blocks {
-        let file_name = unsafe { CStr::from_ptr(i.os_path as *const i8).to_str().unwrap() };
-        let vec = fs::read(file_name).unwrap();
-        println!("cursor at 0x{:x} for {}", writer.stream_position().unwrap(), file_name);
-        writer.write_all(&vec).unwrap();
-        let alignment = writer.stream_position().unwrap() as u32 % DEFAULT_COMPRESSION_BLOCK_ALIGNMENT;
-        if alignment > 0 {
-            let diff = DEFAULT_COMPRESSION_BLOCK_ALIGNMENT - alignment;
-            writer.seek(SeekFrom::Current(diff as i64));
-        }
-    }
-    writer.write_all(&container_data.header).unwrap();
-    fs::write(cas_path, &writer.into_inner()).unwrap();
-}
-*/
 
 // Creates a TOC + CAS given a list of loose directories and files
 // This currently only officially supports 4.25+, 4.26 and 4.27, but TocResolver is implemented in a way that will hopefully make adding support for new versions of
@@ -123,20 +102,7 @@ pub trait TocResolverCommon { // Currently for 4.25+, 4.26 and 4.27
         // remove Content from path
         let path_to_replace_split = file_path.split_once("/Content").unwrap();
         let path_to_replace = "/".to_owned() + path_to_replace_split.0 + path_to_replace_split.1;
-        println!("{}", path_to_replace);
         IoChunkId::new(&path_to_replace, chunk_type)
-        /* 
-        // replace [BaseDirectory]/Content with /Game/
-        //let path_to_replace = PROJECT_NAME.to_owned() + "/Content";
-        let path_to_replace =  "Game/Content";
-        if let Some((_, suffix)) = file_path.to_owned().split_once(&path_to_replace) {
-            let path_to_hash = String::from("/Game") + suffix;
-            println!("{}", path_to_hash);
-            IoChunkId::new(&path_to_hash, chunk_type)
-        } else {
-            panic!("Path \"{}\" is missing root containing project name + content. Path components were not handled properly", file_path);
-        }
-        */
     }
 
     fn get_file_hash(&self, curr_file: &IoFileIndexEntry) -> IoChunkId {
@@ -387,7 +353,7 @@ impl TocResolverType2 {
         container_header
     }
 
-    fn serialize_entry<TSummary: PackageIoSummaryDeserialize>(&mut self, index: usize, container_header: &mut ContainerHeader, pool_guard: &mut MutexGuard<Option<Vec<String>>>) -> PartitionBlock {
+    fn serialize_entry<TSummary: PackageIoSummaryDeserialize>(&mut self, index: usize, container_header: &mut ContainerHeader, pool_guard: &mut MutexGuard<ContainerEntriesType>) -> PartitionBlock {
         let target_file = &self.files[index];
         let generated_chunk_id = self.get_file_hash(target_file); // create the hash for the new file
         self.chunk_ids.push(generated_chunk_id); // push once we're sure that the file's valid
@@ -409,8 +375,11 @@ impl TocResolverType2 {
             ));
         }
         // write into container data
-        (**pool_guard).as_mut().unwrap().push(target_file.os_path.to_owned() + "\0"); // make C formatted string
-        let curr_ospath = &(**pool_guard).as_ref().unwrap()[index];
+        // Bug fix for 1.0.3 - support for unicode characters (UTF-16) in file path
+        (**pool_guard).as_mut().unwrap().push(target_file.os_path.encode_utf16().collect::<Vec<u16>>());
+        let curr_ospath = &mut (**pool_guard).as_mut().unwrap()[index];
+        curr_ospath.push(0);
+        //println!("adding {} to partition block", curr_ospath);
         let new_partition_block = PartitionBlock {
             os_path: curr_ospath.as_ptr() as usize,
             start: self.cas_pointer,
