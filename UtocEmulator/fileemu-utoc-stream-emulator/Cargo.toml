@@ -20,7 +20,7 @@ sha1 = { version = "0.10", optional = true }
 hash_meta = ["dep:sha1"]
 
 [lib]
-crate-type = ["rlib", "cdylib"]
+crate-type = ["cdylib", "rlib"] # rlib for criterion
 
 # remove these to clean up once ready to ship
 [lints.rust]

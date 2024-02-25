@@ -429,7 +429,7 @@ impl ContainerHeaderPackage {
         TSummary: PackageIoSummaryDeserialize,
         TReader: Read + Seek,
         TByteOrder: byteorder::ByteOrder
-    >(file_reader: &mut TReader, hash: u64, size: u64) -> Self { // consume the file object, we're only going to need it in here
+    >(file_reader: &mut TReader, hash: u64, size: u64, path: &str) -> Self { // consume the file object, we're only going to need it in here
         let package_summary = TSummary::to_package_summary::<TReader, TByteOrder>(file_reader).unwrap();
         let export_count = package_summary.get_export_count() as u32;
         file_reader.seek(SeekFrom::Start(package_summary.export_bundle_offset as u64)).unwrap(); // jump to FExportBundleHeader start
@@ -443,39 +443,31 @@ impl ContainerHeaderPackage {
         // however, this causes issues in regards to localized data, since graph package also includes ids for localization data not included in the container header
         // this causes a lot of weird behaviour. This hack involves reading the first file entries (Unreal always serializes asset file paths first, followed by script paths)
         // and then verifying that it's hash is within the graph package hashes. if both conditions are met, then it's allowed to be added as an import
-        file_reader.seek(SeekFrom::Start(package_summary.name_offset as u64)).unwrap();
-        let mut names = vec![];
-        for i in 0..package_summary.name_count {
-            names.push(FString16::from_buffer_text::<TReader, TByteOrder>(file_reader).unwrap().unwrap());
-        }
-        let mut path_name_hashes = vec![];
-        loop { // we only want to hash file paths
-            if path_name_hashes.len() == names.len() || !names[path_name_hashes.len()].starts_with("/") {
-                break;
-            }
-            path_name_hashes.push(Hasher16::get_cityhash64(&names[path_name_hashes.len()]));
-        }
         let mut import_ids = Vec::with_capacity(graph_packages.len());
-        for i in &graph_packages {
-            if path_name_hashes.contains(&i.imported_package_id) {
+        if export_bundle_count == 1 {
+            for i in &graph_packages {
                 import_ids.push(i.imported_package_id);
             }
-        }
-        /* 
-        if hash == 0x3db59b4f866cb94f {
-            import_ids.push(15026947163009660447);
-            import_ids.push(14034440908731088084);
-            import_ids.push(1569282716633655108);
-            import_ids.push(17362242084981044142);
-            import_ids.push(17858394279973317885);
-            import_ids.push(13679221265032979489);
-            import_ids.push(9481542417643979269);
-            import_ids.push(16532287708176821198);
-            import_ids.push(5374460725907434238);
         } else {
-            */
-            
-        //}
+            file_reader.seek(SeekFrom::Start(package_summary.name_offset as u64)).unwrap();
+            let mut names = vec![];
+            for i in 0..package_summary.name_count {
+                names.push(FString16::from_buffer_text::<TReader, TByteOrder>(file_reader).unwrap().unwrap());
+            }
+            let mut path_name_hashes = vec![];
+            loop { // we only want to hash file paths
+                if path_name_hashes.len() == names.len() || !names[path_name_hashes.len()].starts_with("/") {
+                    break;
+                }
+                path_name_hashes.push(Hasher16::get_cityhash64(&names[path_name_hashes.len()]));
+            }
+            for i in &graph_packages {
+                if path_name_hashes.contains(&i.imported_package_id) {
+                    import_ids.push(i.imported_package_id);
+                }
+            }
+        }
+        //println!("ASSET {}, {} imports, {} export bundles", path, import_ids.len(), export_bundle_count);
         let load_order = 0; // This doesn't seem to matter?
         Self {
             hash,
@@ -622,7 +614,7 @@ mod tests {
         let mut os_reader = BufReader::new(os_file);
         ContainerHeaderPackage::from_package_summary::<
             ExportBundleHeader4, PackageSummary2, BufReader<File>, NativeEndian
-        >(&mut os_reader, 0, file_size);
+        >(&mut os_reader, 0, file_size, &format!("aa"));
     }
 
     #[test]
@@ -632,7 +624,7 @@ mod tests {
         //get_export_counts_for_asset(target_asset.to_str().unwrap());
         //let target_asset_2: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "L10N", "en", "Xrd777", "Field", "Data", "DataTable", "Texts", "DT_FldPlaceName.uasset"].iter().collect();
         //get_export_counts_for_asset(target_asset_2.to_str().unwrap());
-        let target_asset_3: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "Xrd777", "Characters", "Player", "PC0051", "Models", "SK_PC0051_H000.uasset"].iter().collect();
+        let target_asset_3: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "Xrd777", "Characters", "Player", "PC0002", "Models", "SK_PC0002_C991.uasset"].iter().collect();
         get_export_counts_for_asset(target_asset_3.to_str().unwrap());
     }
 }

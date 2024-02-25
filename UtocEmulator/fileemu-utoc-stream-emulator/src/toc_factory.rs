@@ -374,7 +374,7 @@ impl TocResolverType2 {
                 ExportBundleHeader4, TSummary, BufReader<File>, byteorder::NativeEndian
             >(
                 &mut file_reader, 
-                self.chunk_ids[index].get_raw_hash(), curr_file.file_size
+                self.chunk_ids[index].get_raw_hash(), curr_file.file_size, &self.files[index].os_path
             ));
         }
         // write into container data
