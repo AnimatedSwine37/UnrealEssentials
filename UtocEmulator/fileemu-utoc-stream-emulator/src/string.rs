@@ -153,7 +153,7 @@ pub struct FString16;
 
 impl FString16 {
     pub fn check_hash(rstr: &str) -> u64 {
-        Hasher::get_cityhash64(rstr)
+        Hasher8::get_cityhash64(rstr)
     }
 
     fn to_buffer_text_inner<W: Write, E: byteorder::ByteOrder>(rstr: &str, writer: &mut W) -> Result<(), Box<dyn Error>> {
@@ -162,7 +162,7 @@ impl FString16 {
         Ok(())
     }
     fn to_buffer_hash_inner<W: Write, E: byteorder::ByteOrder>(rstr: &str, writer: &mut W) -> Result<(), Box<dyn Error>> {
-        writer.write_u64::<E>(Hasher::get_cityhash64(&rstr));
+        writer.write_u64::<E>(Hasher8::get_cityhash64(&rstr));
         Ok(())
     }
 }
@@ -208,9 +208,8 @@ impl FStringSerializerBlockAlign for FString16 {
     }
 }
 
-// Rename to Hasher8 later
-pub struct Hasher;
-impl Hasher {
+pub struct Hasher8;
+impl Hasher8 {
     pub fn get_cityhash64(bytes: &str) -> u64 {
         let to_hash = String::from(bytes).to_lowercase();
         cityhasher::hash(to_hash.as_bytes())

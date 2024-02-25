@@ -1,6 +1,6 @@
 [package]
 name = "fileemu-utoc-stream-emulator"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2021"
 authors = [ "Rirurin" ]
 description = "Simulates Unreal Engine IO Store files. Allows mods to add or replace existing files using files on disk."
@@ -20,7 +20,7 @@ sha1 = { version = "0.10", optional = true }
 hash_meta = ["dep:sha1"]
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["rlib", "cdylib"]
 
 # remove these to clean up once ready to ship
 [lints.rust]

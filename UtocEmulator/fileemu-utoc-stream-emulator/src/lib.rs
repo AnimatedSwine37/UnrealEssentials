@@ -9,3 +9,4 @@ pub mod pak_package; // Handling cooked packages (WIP)
 pub mod toc_factory; // Build IO Store TOC
 pub mod platform; // Platform agnostic abstractions
 pub mod string; // Unreal serialized string types
+pub mod metadata; // (1.1) Parsing UTOC Metadata file to customize handling of assets

@@ -309,10 +309,8 @@ pub struct ExportBundleEntry { // same across all versions of Unreal Engine
     command_type: ExportBundleCommandType
 }
 pub trait ExportBundle {
-    // Create a list of export bundles from a serialized byte stream. It's up to the user to ensure that the cursor is in the correct position
-    fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<Vec<ExportBundleEntry>, Box<dyn Error>>;
     // Get the number of export bundles that a package has. This info is used to build it's entry in 
-    fn get_export_bundle_count(entries: &Vec<ExportBundleEntry>) -> u32;
+    fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(export_bundle_offset: u32, graph_offset: u32, reader: &mut R) -> u32;
 }
 
 #[repr(C)]
@@ -321,25 +319,45 @@ pub struct ExportBundleHeader4 { // Unreal Engine 4.25-4.27
     entry_count: u32,
 }
 
-impl ExportBundle for ExportBundleHeader4 {
-    fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<Vec<ExportBundleEntry>, Box<dyn Error>> {
-        reader.read_u32::<E>()?; // FirstEntryIndex, not important
-        let entry_count = reader.read_u32::<E>()?;
-        let mut entries = Vec::with_capacity(entry_count as usize);
-        for _ in 0..entry_count {
-            let local_export_index = reader.read_u32::<E>()?;
-            let command_type = reader.read_u32::<E>()?.try_into()?;
-            entries.push(ExportBundleEntry{ local_export_index, command_type })
-        }
-        Ok(entries)
+impl ExportBundleHeader4 {
+    fn new(first_entry_index: u32, entry_count: u32) -> Self {
+        Self { first_entry_index, entry_count }
     }
-    fn get_export_bundle_count(entries: &Vec<ExportBundleEntry>) -> u32 {
-        let mut count = 0;
-        for i in entries {
-            let export_count_maybe = i.local_export_index + 1;
-            count = if export_count_maybe > count { export_count_maybe } else { count };
+
+    fn bundle_entry_sum(bundles: &Vec<ExportBundleHeader4>, to: usize) -> u32 {
+        let mut total_bundles = 0;
+        for i in 0..to {
+            total_bundles += bundles[i].entry_count;
         }
-        count
+        total_bundles
+    }
+}
+
+impl ExportBundle for ExportBundleHeader4 {
+    fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(export_bundle_offset: u32, graph_offset: u32, reader: &mut R) -> u32 {
+        let mut predicted_export_bundles: Vec<ExportBundleHeader4> = vec![];
+        loop {
+            let first_index = reader.read_u32::<E>().unwrap();
+            // export bundle indices must be contiguous (0, 32), (32, 20), (52, 20)
+            if predicted_export_bundles.len() > 0 && first_index != predicted_export_bundles.last().unwrap().entry_count { 
+                break;
+            } 
+            let export_bundle_entries = reader.read_u32::<E>().unwrap();
+            if export_bundle_entries == 0 { // no need to continue
+                break;
+            }
+            predicted_export_bundles.push(ExportBundleHeader4::new(first_index, export_bundle_entries));
+        }
+        let actual_entries = (graph_offset - export_bundle_offset - predicted_export_bundles.len() as u32 * 8) / 8; // 8 -> sizeof(FExportBumdleEntry)
+        let mut actual_export_bundle_count = predicted_export_bundles.len();
+        loop {
+            if actual_export_bundle_count == 0 || actual_entries == ExportBundleHeader4::bundle_entry_sum(&predicted_export_bundles, actual_export_bundle_count) {
+                break
+            }
+            actual_export_bundle_count -= 1;
+        }
+        let return_value = if actual_export_bundle_count > 0 { actual_export_bundle_count as u32 } else { 1 };
+        return_value
     }
 }
 
@@ -397,14 +415,14 @@ impl ContainerHeaderPackage {
         TReader: Read + Seek,
         TByteOrder: byteorder::ByteOrder
     >(file_reader: &mut TReader, hash: u64, size: u64) -> Self { // consume the file object, we're only going to need it in here
-        type Endian = byteorder::NativeEndian;
         let package_summary = TSummary::to_package_summary::<TReader, TByteOrder>(file_reader).unwrap();
         let export_count = package_summary.get_export_count() as u32;
         file_reader.seek(SeekFrom::Start(package_summary.export_bundle_offset as u64)).unwrap(); // jump to FExportBundleHeader start
-        let export_bundles = TExportBundle::from_buffer::<TReader, Endian>(file_reader).unwrap(); // Deserialize ExportBundle to get export bundle count
-        let export_bundle_count = TExportBundle::get_export_bundle_count(&export_bundles); // Go through each export bundle to look for the highest index
+        let export_bundle_count = TExportBundle::from_buffer::<TReader, TByteOrder>(
+            package_summary.export_bundle_offset, package_summary.graph_offset, file_reader
+        ); // Go through each export bundle to look for the highest index
         file_reader.seek(SeekFrom::Start(package_summary.graph_offset as u64)).unwrap(); // go to FGraphPackage (imported_packages_count)
-        let graph_packages = FGraphPackage::list_from_buffer::<TReader, Endian>(file_reader);
+        let graph_packages = FGraphPackage::list_from_buffer::<TReader, TByteOrder>(file_reader);
         let mut import_ids = Vec::with_capacity(graph_packages.len());
         for i in &graph_packages {
             import_ids.push(i.imported_package_id);
@@ -455,8 +473,7 @@ impl ContainerHeaderPackage {
     pub fn to_buffer_store_entry<W: Write + Seek, E: byteorder::ByteOrder>(&self, writer: &mut W, base_offset: u64, curr_offset: &mut u64) -> Result<(), Box<dyn Error>> {
         writer.write_u64::<E>(self.export_bundle_size)?; // 0x0
         writer.write_u32::<E>(self.export_count)?; // 0x8
-        //writer.write_u32::<E>(self.export_bundle_count)?; // 0xc
-        writer.write_u32::<E>(1)?; // 0xc
+        writer.write_u32::<E>(self.export_bundle_count)?; // 0xc
         writer.write_u32::<E>(self.load_order)?; // 0x10
         writer.write_u32::<E>(0)?; // 0x14 padding
         let relative_offset = if self.import_ids.len() > 0 { Some((base_offset + *curr_offset - writer.stream_position().unwrap()) as u32) } else { None };
@@ -536,127 +553,35 @@ pub fn is_valid_asset_type<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut
     magic_check != UASSET_MAGIC
 }
 
-/*
-#[derive(Debug)]
-#[allow(dead_code)]
-pub struct ObjectExport3<'a> { // Unreal Engine 5.0+
-    pub cooked_serial_offset: i64,
-    pub cooked_serial_size: i64,
-    pub object_name: &'a str,
-    pub outer_export: i32, // refers to ith entry in export map
-    pub class_name: Option<&'a str>,
-    pub super_name: Option<&'a str>,
-    pub template_name: Option<&'a str>,
-    pub public_export_hash: u64,
-    pub object_flags: ObjectFlags,
-    pub filter_flags: ExportFilterFlags
-}
+#[cfg(test)]
+mod tests {
+    use std::{
+        env,
+        fs::File,
+        io::BufReader,
+        path::PathBuf
+    };
+    use byteorder::NativeEndian;
+    use crate::{
+        io_package::{ ContainerHeaderPackage, ExportBundleHeader4, PackageSummary2 },
+        platform::Metadata
+    };
 
-
-impl<'a> ObjectExportWriter for ObjectExport3<'a> {
-
-}
-*/
-
-// Name Map: Vec of FString + u64 Hashes
-
-// Import Map: Vec of u64 Hashes (derived from the import file name)
-// TODO: Rename this to IoStoreObjectIndex
-/* 
-#[derive(Debug, PartialEq)]
-pub enum ObjectImport {
-    ScriptImport(String),
-    PackageImport(String),
-    Empty
-}
-/* 
-#[derive(Debug)]
-pub struct ObjectImport {
-    pub import_file: Option<String>
-}
-*/
-
-impl ObjectImport {
-    pub fn to_buffer<W: Write, E: byteorder::ByteOrder>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
-        // Write out a single IoStoreObjectIndex hash to IO Store
-        // Value to hash is ([package_name]/)[path]
-        match self {
-            Self::ScriptImport(path)  => ObjectImport::write_hash::<W, E>(path, writer, IoStoreObjectIndexType::ScriptImport),
-            Self::PackageImport(path) => ObjectImport::write_hash::<W, E>(path, writer, IoStoreObjectIndexType::PackageImport),
-            Self::Empty => {
-                writer.write_u64::<E>(u64::MAX)?; // write_hash(path, writer, IoStoreObjectIndexType::Null)
-                Ok(())
-            },
-        };
-        Ok(())
+    fn get_export_counts_for_asset(path: &str) {
+        let os_file = File::open(path).unwrap();
+        let file_size = Metadata::get_file_size(&os_file);
+        let mut os_reader = BufReader::new(os_file);
+        ContainerHeaderPackage::from_package_summary::<
+            ExportBundleHeader4, PackageSummary2, BufReader<File>, NativeEndian
+        >(&mut os_reader, 0, file_size);
     }
 
-    fn write_hash<W: Write, E: byteorder::ByteOrder>(path: &str, writer: &mut W, obj_type: IoStoreObjectIndexType) -> Result<(), Box<dyn Error>> {
-        let mut to_hash = String::from(path);
-        to_hash = to_hash.replace(".", "/"); // regex: find [.:]
-        to_hash = to_hash.replace(":", "/");
-        writer.write_u64::<E>(
-            IoStoreObjectIndex::generate_hash(&to_hash, obj_type).into()
-        )?;
-        Ok(())
+    #[test]
+    fn get_bundle_count() {
+        let base_path = env::var("RELOADEDIIMODS").unwrap_or_else(|err| panic!("Environment variable \"RELOADEDIIMODS\" is missing"));
+        let target_asset: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "Xrd777", "Blueprints", "UI", "SaveLoad", "BP_SaveLoadDraw.uasset"].iter().collect();
+        get_export_counts_for_asset(target_asset.to_str().unwrap());
+        let target_asset_2: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "L10N", "en", "Xrd777", "Field", "Data", "DataTable", "Texts", "DT_FldPlaceName.uasset"].iter().collect();
+        get_export_counts_for_asset(target_asset_2.to_str().unwrap());
     }
-
-    // Convert FObjectImport into named ObjectImport
-    pub fn from_pak_asset<N: NameMap>(import_map: &Vec<FObjectImport>, name_map: &N) -> Vec<ObjectImport> {
-        let mut resolves = vec![];
-        for (i, v) in import_map.into_iter().enumerate() {
-            println!("{}, {:?}", i, v);
-            match v.resolve(name_map, import_map) {
-                Ok(obj) => resolves.push(obj),
-                Err(e) => panic!("Error converting PAK formatted import to IO Store import on ID {} \nValue {:?}\nReason: {}", i, v, e.to_string())
-            }
-        }
-        resolves
-    }
-
-    pub fn map_to_buffer<W: Write, E: byteorder::ByteOrder>(map: &Vec<Self>, writer: &mut W) -> Result<(), Box<dyn Error>> {
-        for i in map {
-            i.to_buffer::<W, E>(writer)?;
-        }
-        Ok(())
-    }
-}*/
-/*
-pub trait ObjectExportWriter {
-    fn to_buffer<
-        W: Write,
-        N: NameMap,
-        E: byteorder::ByteOrder
-    >(&self, writer: &mut W, names: &N) -> Result<(), Box<dyn Error>>;
-
-    fn resolve<
-        G: GameName,
-        N: NameMap,
-    >(import: &crate::pak_package::FObjectExport, names: &N, file_name: &str, game_name: &G) -> impl ObjectExportWriter;
 }
-
-#[derive(Debug)]
-#[allow(dead_code)]
-pub struct ObjectExport1<'a> { // Unreal Engine 4.25
-    pub serial_size: i64,
-    pub object_name: &'a str,
-    pub outer_export: i32, // refers to ith entry in export map
-    pub class_name: Option<&'a str>,
-    pub super_name: Option<&'a str>,
-    pub template_name: Option<&'a str>,
-    pub global_import_name: String,
-    pub object_flags: ObjectFlags,
-    pub filter_flags: ExportFilterFlags
-}
-
-
-impl<'a> ObjectExportWriter for ObjectExport1<'a> {
-    
-}
-
-#[derive(Debug)]
-pub struct MappedName<'a> {
-    pub name: &'a str,
-    pub value: FMappedName
-}
-*/
