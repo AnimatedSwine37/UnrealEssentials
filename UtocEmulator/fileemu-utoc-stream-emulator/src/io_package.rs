@@ -12,7 +12,7 @@ type ExportFilterFlags = u8; // and this one too...
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use crate::{
     pak_package::{FObjectImport, FObjectExport, GameName, NameMap},
-    string::FMappedName,
+    string::{ FMappedName, FStringDeserializerText, FString16, Hasher16 },
     toc_factory::{TocResolverCommon, TocResolverType2}
 };
 use std::{
@@ -95,6 +95,9 @@ impl ObjectImport {
 // Generic package summary implementation that contains fields appropriate for creating virtual container header
 // The fields that are relevant are export_offset, export_bundle_offset and graph_offset
 pub struct PackageSummaryExports {
+    name_offset: u32,
+    name_count: u32,
+    import_offset: u32,
     export_offset: u32,
     export_bundle_offset: u32,
     graph_offset: u32
@@ -131,15 +134,20 @@ pub struct PackageSummary1 { // Unreal Engine 4.25 (untested)
     padding: i32
 }
 
+/* 
 impl PackageIoSummaryDeserialize for PackageSummary1 {
     fn to_package_summary<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<PackageSummaryExports, Box<dyn Error>> {
-        reader.seek(SeekFrom::Current(0xc));
+        reader.seek(SeekFrom::Current(0x4));
+        let name_offset = reader.read_u32::<E>()?; // FPackageSummary->name_map_offset
+        let name_count = 0;
+        let import_offset = reader.read_u32::<E>()?; // FPackageSummary->import_map_offset
         let export_offset = reader.read_u32::<E>()?; // FPackageSummary->export_map_offset
         let export_bundle_offset = reader.read_u32::<E>()?; // FPackageSummary->export_bundle_export
         let graph_offset = reader.read_u32::<E>()?; // FPackageSummary->graph_offset
-        Ok(PackageSummaryExports { export_offset, export_bundle_offset, graph_offset })
+        Ok(PackageSummaryExports { name_offset, name_count, import_offset, export_offset, export_bundle_offset, graph_offset })
     }
 }
+*/
 
 #[repr(C)]
 pub struct PackageSummary2 { // Unreal Engine 4.25+, 4.26-4.27 (normal, plus, chaos)
@@ -161,11 +169,15 @@ pub struct PackageSummary2 { // Unreal Engine 4.25+, 4.26-4.27 (normal, plus, ch
 
 impl PackageIoSummaryDeserialize for PackageSummary2 {
     fn to_package_summary<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<PackageSummaryExports, Box<dyn Error>> {
-        reader.seek(SeekFrom::Current(0x2c));
+        reader.seek(SeekFrom::Current(0x18));
+        let name_offset = reader.read_u32::<E>()?; // FPackageSummary->name_map_offset
+        reader.seek(SeekFrom::Current(0x8));
+        let name_count = (reader.read_u32::<E>()? - 1) / std::mem::size_of::<u64>() as u32; // FPackageSummary->name_map_hashes_size - Algorithm hash
+        let import_offset = reader.read_u32::<E>()?; // FPackageSummary->import_map_offset
         let export_offset = reader.read_u32::<E>()?; // FPackageSummary->export_map_offset
         let export_bundle_offset = reader.read_u32::<E>()?; // FPackageSummary->export_bundle_export
         let graph_offset = reader.read_u32::<E>()?; // FPackageSummary->graph_offset
-        Ok(PackageSummaryExports { export_offset, export_bundle_offset, graph_offset })
+        Ok(PackageSummaryExports { name_offset, name_count, import_offset, export_offset, export_bundle_offset, graph_offset })
     }
 }
 
@@ -217,6 +229,7 @@ pub struct ZenPackageSummaryType1 { // Unreal Engine 5.0-5.2 (untested)
     graph_data_offset: i32
 }
 
+/* 
 impl PackageIoSummaryDeserialize for ZenPackageSummaryType1 {
     fn to_package_summary<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<PackageSummaryExports, Box<dyn Error>> {
         reader.seek(SeekFrom::Current(0x20));
@@ -226,6 +239,7 @@ impl PackageIoSummaryDeserialize for ZenPackageSummaryType1 {
         Ok(PackageSummaryExports { export_offset, export_bundle_offset, graph_offset })
     }
 }
+*/
 
 #[repr(C)]
 pub struct ZenPackageSummaryType2 { // Unreal Engine 5.3 (untested)
@@ -335,6 +349,7 @@ impl ExportBundleHeader4 {
 
 impl ExportBundle for ExportBundleHeader4 {
     fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(export_bundle_offset: u32, graph_offset: u32, reader: &mut R) -> u32 {
+        // use clues from how the serialized data is structued to determine the export bundle count, since it's not stored as a field in header
         let mut predicted_export_bundles: Vec<ExportBundleHeader4> = vec![];
         loop {
             let first_index = reader.read_u32::<E>().unwrap();
@@ -423,10 +438,44 @@ impl ContainerHeaderPackage {
         ); // Go through each export bundle to look for the highest index
         file_reader.seek(SeekFrom::Start(package_summary.graph_offset as u64)).unwrap(); // go to FGraphPackage (imported_packages_count)
         let graph_packages = FGraphPackage::list_from_buffer::<TReader, TByteOrder>(file_reader);
+        // I didn't want to have to rely on this behavior, but here we go
+        // previously, utoc emulator only relied on obtaining it's container header import ids from the package's graph package ids (which in itself was a bit of a hack)
+        // however, this causes issues in regards to localized data, since graph package also includes ids for localization data not included in the container header
+        // this causes a lot of weird behaviour. This hack involves reading the first file entries (Unreal always serializes asset file paths first, followed by script paths)
+        // and then verifying that it's hash is within the graph package hashes. if both conditions are met, then it's allowed to be added as an import
+        file_reader.seek(SeekFrom::Start(package_summary.name_offset as u64)).unwrap();
+        let mut names = vec![];
+        for i in 0..package_summary.name_count {
+            names.push(FString16::from_buffer_text::<TReader, TByteOrder>(file_reader).unwrap().unwrap());
+        }
+        let mut path_name_hashes = vec![];
+        loop { // we only want to hash file paths
+            if path_name_hashes.len() == names.len() || !names[path_name_hashes.len()].starts_with("/") {
+                break;
+            }
+            path_name_hashes.push(Hasher16::get_cityhash64(&names[path_name_hashes.len()]));
+        }
         let mut import_ids = Vec::with_capacity(graph_packages.len());
         for i in &graph_packages {
-            import_ids.push(i.imported_package_id);
+            if path_name_hashes.contains(&i.imported_package_id) {
+                import_ids.push(i.imported_package_id);
+            }
         }
+        /* 
+        if hash == 0x3db59b4f866cb94f {
+            import_ids.push(15026947163009660447);
+            import_ids.push(14034440908731088084);
+            import_ids.push(1569282716633655108);
+            import_ids.push(17362242084981044142);
+            import_ids.push(17858394279973317885);
+            import_ids.push(13679221265032979489);
+            import_ids.push(9481542417643979269);
+            import_ids.push(16532287708176821198);
+            import_ids.push(5374460725907434238);
+        } else {
+            */
+            
+        //}
         let load_order = 0; // This doesn't seem to matter?
         Self {
             hash,
@@ -579,9 +628,11 @@ mod tests {
     #[test]
     fn get_bundle_count() {
         let base_path = env::var("RELOADEDIIMODS").unwrap_or_else(|err| panic!("Environment variable \"RELOADEDIIMODS\" is missing"));
-        let target_asset: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "Xrd777", "Blueprints", "UI", "SaveLoad", "BP_SaveLoadDraw.uasset"].iter().collect();
-        get_export_counts_for_asset(target_asset.to_str().unwrap());
-        let target_asset_2: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "L10N", "en", "Xrd777", "Field", "Data", "DataTable", "Texts", "DT_FldPlaceName.uasset"].iter().collect();
-        get_export_counts_for_asset(target_asset_2.to_str().unwrap());
+        //let target_asset: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "Xrd777", "Blueprints", "UI", "SaveLoad", "BP_SaveLoadDraw.uasset"].iter().collect();
+        //get_export_counts_for_asset(target_asset.to_str().unwrap());
+        //let target_asset_2: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "L10N", "en", "Xrd777", "Field", "Data", "DataTable", "Texts", "DT_FldPlaceName.uasset"].iter().collect();
+        //get_export_counts_for_asset(target_asset_2.to_str().unwrap());
+        let target_asset_3: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "Xrd777", "Characters", "Player", "PC0051", "Models", "SK_PC0051_H000.uasset"].iter().collect();
+        get_export_counts_for_asset(target_asset_3.to_str().unwrap());
     }
 }
