@@ -9,17 +9,20 @@ Split-Path $MyInvocation.MyCommand.Path | Push-Location
               
 Remove-Item "Publish/Builds" -Recurse -ErrorAction SilentlyContinue
 
+# Create Rust project
+New-Item "Publish/Builds/CurrentVersion" -ItemType Directory
+
 Push-Location "./UtocEmulator/fileemu-utoc-stream-emulator"
 $env:RUSTFLAGS = "-C panic=abort -C lto=fat -C embed-bitcode=yes"
-# cargo +nightly build --release -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort -Z unstable-options --target x86_64-pc-windows-msvc --out-dir "../../Publish/Builds/CurrentVersion"
-cargo +nightly rustc --lib --release -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --crate-type cdylib --target $target_triple
-Push-Location "../target/$target_triple/release"
-Copy-Item "$output_name.dll" -Destination "$env:RELOADEDIIMODS\$emulator_name_csharp"
-Copy-Item "$output_name.dll.lib" -Destination "$env:RELOADEDIIMODS\$emulator_name_csharp"
-Copy-Item "$output_name.dll.exp" -Destination "$env:RELOADEDIIMODS\$emulator_name_csharp"
+$current_ver_folder = [Environment]::CurrentDirectory + "/Publish/Builds/CurrentVersion"
+$rust_lib_out = "fileemu_utoc_stream_emulator.dll"
+cargo +nightly rustc --lib --release -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --crate-type cdylib --target x86_64-pc-windows-msvc
+Push-Location "../target/x86_64-pc-windows-msvc/release"
+Copy-Item  $rust_lib_out -Destination $current_ver_folder
+Copy-Item "$rust_lib_out.lib" -Destination $current_ver_folder
+Copy-Item "$rust_lib_out.exp" -Destination $current_ver_folder
 Pop-Location
 Pop-Location
-
 
 ./Publish.ps1 -ProjectPath "UtocEmulator/UTOC.Stream.Emulator/UTOC.Stream.Emulator.csproj" `
               -PackageName "UTOC.Stream.Emulator" `
