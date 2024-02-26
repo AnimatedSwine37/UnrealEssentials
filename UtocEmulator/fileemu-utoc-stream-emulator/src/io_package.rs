@@ -438,7 +438,6 @@ impl ContainerHeaderPackage {
         ); // Go through each export bundle to look for the highest index
         file_reader.seek(SeekFrom::Start(package_summary.graph_offset as u64)).unwrap(); // go to FGraphPackage (imported_packages_count)
         let graph_packages = FGraphPackage::list_from_buffer::<TReader, TByteOrder>(file_reader);
-        // I didn't want to have to rely on this behavior, but here we go
         // previously, utoc emulator only relied on obtaining it's container header import ids from the package's graph package ids (which in itself was a bit of a hack)
         // however, this causes issues in regards to localized data, since graph package also includes ids for localization data not included in the container header
         // this causes a lot of weird behaviour. This hack involves reading the first file entries (Unreal always serializes asset file paths first, followed by script paths)
