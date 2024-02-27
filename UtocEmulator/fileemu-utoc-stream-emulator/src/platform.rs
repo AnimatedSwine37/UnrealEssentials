@@ -1,4 +1,4 @@
-use std::fs::DirEntry;
+use std::fs::{ DirEntry, File };
 
 #[cfg(target_os = "linux")]
 use std::os::linux;
@@ -13,19 +13,37 @@ pub struct Metadata;
 
 impl Metadata {
     #[cfg(target_os = "linux")]
-    pub fn get_file_size(fs_obj: &DirEntry) -> u64 {
+    pub fn get_object_size(fs_obj: &DirEntry) -> u64 {
+        let meta = fs_obj.metadata().unwrap();
+        linux::fs::MetadataExt::st_size(&meta)
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn get_file_size(fs_obj: &File) -> u64 {
         let meta = fs_obj.metadata().unwrap();
         linux::fs::MetadataExt::st_size(&meta)
     }
 
     #[cfg(target_os = "unix")]
-    pub fn get_file_size(fs_obj: &DirEntry) -> u64 {
+    pub fn get_object_size(fs_obj: &DirEntry) -> u64 {
+        let meta = fs_obj.metadata().unwrap();
+        linux::fs::MetadataExt::size(&meta)
+    }
+
+    #[cfg(target_os = "unix")]
+    pub fn get_file_size(fs_obj: &File) -> u64 {
         let meta = fs_obj.metadata().unwrap();
         linux::fs::MetadataExt::size(&meta)
     }
 
     #[cfg(target_os = "windows")]
-    pub fn get_file_size(fs_obj: &DirEntry) -> u64 {
+    pub fn get_object_size(fs_obj: &DirEntry) -> u64 {
+        let meta = fs_obj.metadata().unwrap();
+        windows::fs::MetadataExt::file_size(&meta)
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn get_file_size(fs_obj: &File) -> u64 {
         let meta = fs_obj.metadata().unwrap();
         windows::fs::MetadataExt::file_size(&meta)
     }

@@ -14,6 +14,11 @@ pub trait FStringDeserializer {
     // Ideally there'd be some way to automatically determine that for implementations of from_buffer() but idk i'll figure that out later
     fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<Option<String>, Box<dyn Error>>;
 }
+
+pub trait FStringDeserializerText {
+    // FStringDeserializer but without the hash
+    fn from_buffer_text<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<Option<String>, Box<dyn Error>>;
+}
 pub trait FStringSerializer {
     // Take a string and convert into a byte stream that can be written out onto a file
     // Don't consume it, in case that string needs to be written multiple times
@@ -147,13 +152,13 @@ impl FStringSerializer for FString32 {
 #[derive(Debug)]
 // Used for Name Map in IO Package headers (FStrings, followed by u64 hashes)
 pub struct FString16;
-    // 0x0:         len: u16
+    // 0x0:         len: u16 (flag 0x8000 BE sets between ascii/unicode)
     // 0x2:         data: [u8; len]
     // 0x2 + len:   hash: u64 (cityhash64 of data.to_lowercase())
 
 impl FString16 {
     pub fn check_hash(rstr: &str) -> u64 {
-        Hasher::get_cityhash64(rstr)
+        Hasher8::get_cityhash64(rstr)
     }
 
     fn to_buffer_text_inner<W: Write, E: byteorder::ByteOrder>(rstr: &str, writer: &mut W) -> Result<(), Box<dyn Error>> {
@@ -162,23 +167,40 @@ impl FString16 {
         Ok(())
     }
     fn to_buffer_hash_inner<W: Write, E: byteorder::ByteOrder>(rstr: &str, writer: &mut W) -> Result<(), Box<dyn Error>> {
-        writer.write_u64::<E>(Hasher::get_cityhash64(&rstr));
+        writer.write_u64::<E>(Hasher8::get_cityhash64(&rstr));
         Ok(())
     }
 }
 
 impl FStringDeserializer for FString16 {
-    fn from_buffer<R: Read, E: byteorder::ByteOrder>(reader: &mut R) -> Result<Option<String>, Box<dyn Error>> {
-        // written in big endian for a u16. might be because of the path limit and 0x0 is reserved for some byte flag?
-        // i'll figure that out later
-        let len = reader.read_u16::<byteorder::BigEndian>()?;
-
-        let mut buf = vec![0; len as usize];
-        reader.read_exact(&mut buf);
+    fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<Option<String>, Box<dyn Error>> {
+        let res = FString16::from_buffer_text::<R, E>(reader);
         reader.read_u64::<E>()?;
-        Ok(Some(unsafe { String::from_utf8_unchecked(buf)}))
+        res
     }
 }
+
+impl FStringDeserializerText for FString16 {
+    fn from_buffer_text<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<Option<String>, Box<dyn Error>> {
+        let len_raw = reader.read_u16::<byteorder::BigEndian>()?;
+        let len = len_raw & 0x7fff;
+        let b_is_wide = if (len_raw & 0x8000) != 0 { true } else { false };
+        if b_is_wide && reader.stream_position().unwrap() % 2 != 0 {
+            reader.read_u8()?; // align to nearest 0x2 if wide
+        }
+        let mut buf: Vec<u8> = vec![0; if b_is_wide { 2 * len } else { len } as usize];
+        reader.read_exact(&mut buf);
+        Ok(Some(unsafe { 
+            if b_is_wide {
+                // Safety: length of buf was multiplied by 2 to read n u16s, dividing by 2 is just undoing that
+                String::from_utf16_lossy(std::slice::from_raw_parts(buf.as_ptr() as *const u16, buf.len() / 2))
+            } else {
+                String::from_utf8_unchecked(buf)
+            }
+        }))
+    }
+}
+
 impl FStringSerializer for FString16 {
     fn to_buffer<W: Write, E: byteorder::ByteOrder>(rstr: &str, writer: &mut W) -> Result<(), Box<dyn Error>> {
         FString16::to_buffer_text_inner::<W, E>(rstr, writer);
@@ -208,9 +230,8 @@ impl FStringSerializerBlockAlign for FString16 {
     }
 }
 
-// Rename to Hasher8 later
-pub struct Hasher;
-impl Hasher {
+pub struct Hasher8;
+impl Hasher8 {
     pub fn get_cityhash64(bytes: &str) -> u64 {
         let to_hash = String::from(bytes).to_lowercase();
         cityhasher::hash(to_hash.as_bytes())

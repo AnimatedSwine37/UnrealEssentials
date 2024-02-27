@@ -1,24 +1,22 @@
 use crate::{
     io_package,
+    io_toc::IoChunkId,
+    metadata::{UtocMetadata, UTOC_METADATA},
     platform::Metadata,
     toc_factory::TARGET_TOC
 };
 use std::{
     cell::RefCell,
-    collections::BTreeSet,
+    collections::{BTreeSet, HashMap},
     fs, fs::File,
     io::BufReader,
     path::{Path, PathBuf},
-    //rc::{Rc, Weak},
     sync::{Arc, Mutex, RwLock, Weak},
     time::Instant
 };
 
 pub type TocDirectorySyncRef = Arc<RwLock<TocDirectory>>;
 pub type TocFileSyncRef = Arc<RwLock<TocFile>>;
-
-pub const EMULATOR_NAME:                    &'static str = "UTOC";
-//pub const PROJECT_NAME:                     &'static str = "UnrealEssentials";
 
 pub static ROOT_DIRECTORY: Mutex<Option<TocDirectorySyncRef>> = Mutex::new(None);
 pub static ASSET_COLLECTOR_PROFILER: Mutex<Option<AssetCollectorProfiler>> = Mutex::new(None);
@@ -38,7 +36,6 @@ pub fn add_from_folders(mod_id: &str, mod_path: &str) {
             *root_dir_lock = Some(TocDirectory::new_rc(None));
         }
         add_from_folders_inner(Arc::clone(&(*root_dir_lock).as_ref().unwrap()), &mod_path, &mut profiler_mod.data, true);
-        profiler_mod.set_time_to_tree();
         (*profiler_lock).as_mut().unwrap().mods_loaded.push(profiler_mod);
     }
 }
@@ -60,7 +57,6 @@ pub struct TocDirectory {
 }
 
 impl TocDirectory {
-    // constructor
     pub fn new(name: Option<String>) -> Self {
         Self {
             name,
@@ -232,7 +228,7 @@ pub const SUITABLE_FILE_EXTENSIONS: &'static [&'static str] = ["uasset", "ubulk"
 pub const MOUNT_POINT: &'static str = "../../../";
 pub const GAME_ROOT: &'static str = "Game";
 
-pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, profiler: &mut AssetCollectorProfilerModContents, mut first: bool) {
+pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, profiler: &mut AssetCollectorProfilerModContents, first: bool) {
     // We've already checked that this path exists in AddFromFolders, so unwrap directly
     // This folder is equivalent to /[ProjectName]/Content, so our mount point will be
     // at least ../../../[ProjectName] (../../../Game/)
@@ -254,7 +250,6 @@ pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, pr
                             // Set the root directory to Game if it isn't engine so people can use the game name (assuming only Engine and Game)
                             if first && name != "Engine"
                             {
-                                first = false;
                                 println!("Setting root directory {} to Game", name);
                                 name = GAME_ROOT.to_string();
                             }
@@ -267,7 +262,7 @@ pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, pr
                         }
                     }
                 } else if file_type.is_file() {
-                    let file_size = Metadata::get_file_size(fs_obj);
+                    let file_size = Metadata::get_object_size(fs_obj);
                     match PathBuf::from(&name).extension() {
                         Some(ext) => {
                             let ext_str = ext.to_str().unwrap();
@@ -293,8 +288,18 @@ pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, pr
                                 // Io Store forces you to also make a pak file (hopefully DC's patches can fix this)
                                 None => profiler.add_skipped_file(fs_obj.path().to_str().unwrap(), format!("Unsupported file type"), file_size)
                             }
+                        },
+                        None => {
+                            if &name == ".utocmeta" {
+                                let mut utoc_meta_lock = UTOC_METADATA.lock().unwrap();
+                                if *utoc_meta_lock == None {
+                                    *utoc_meta_lock = Some(UtocMetadata::new());
+                                }
+                                utoc_meta_lock.as_mut().unwrap().add_entries(fs::read(fs_obj.path()).unwrap());
+                            } else {
+                                profiler.add_skipped_file(fs_obj.path().to_str().unwrap(), format!("No file extension"), file_size);
+                            }
                         }
-                        None => profiler.add_skipped_file(fs_obj.path().to_str().unwrap(), format!("No file extension"), file_size)
                     }
                 }
             },
@@ -333,8 +338,6 @@ pub struct AssetCollectorProfilerModContents {
     incorrect_asset_header: Vec<String>,
     skipped_files: Vec<AssetCollectorSkippedFileEntry>,
     skipped_file_size: u64,
-    timer: Instant,
-    time_to_tree: u128,
 }
 
 impl AssetCollectorProfilerModContents {
@@ -349,8 +352,6 @@ impl AssetCollectorProfilerModContents {
             incorrect_asset_header: vec![],
             skipped_files: vec![],
             skipped_file_size: 0,
-            timer: Instant::now(),
-            time_to_tree: 0,
         }
     }
     
@@ -373,22 +374,12 @@ impl AssetCollectorProfilerModContents {
         self.replaced_files_count += 1;
         self.replaced_files_size += size;
     }
-    pub fn get_tree_time(&mut self) {
-        self.time_to_tree = self.timer.elapsed().as_micros();
-    }
 
     pub fn print(&self) {
         //println!("Created tree in {} ms", self.time_to_tree as f64 / 1000f64);
         println!("{} directories added", self.directory_count);
         println!("{} added files ({} KB)", self.added_files_count, self.added_files_size / 1024);
         println!("{} replaced files ({} KB)", self.replaced_files_count, self.replaced_files_size / 1024);
-        //if self.skipped_files.len() > 0 {
-        //    println!("{}", "-".repeat(80));
-        //    println!("SKIPPED FILES: {} FILES ({} KB)", self.skipped_files.len(), self.skipped_file_size / 1024);
-        //    for i in &self.skipped_files {
-        //        println!("File \"{}\", reason \"{}\"", i.os_path, i.reason);
-        //    }
-        //}
         if self.incorrect_asset_header.len() > 0 {
             println!("{}", "-".repeat(AssetCollectorProfiler::get_terminal_length()));
             println!("INCORRECT ASSET FORMAT: {} FILES", self.incorrect_asset_header.len());
@@ -421,9 +412,6 @@ impl AssetCollectorProfilerMod {
             os_path: mod_path.to_owned(),
             data: AssetCollectorProfilerModContents::new()
         }
-    }
-    pub fn set_time_to_tree(&mut self) {
-        self.data.time_to_tree = self.data.timer.elapsed().as_micros();
     }
 
     fn print(&self) {
@@ -459,4 +447,45 @@ impl AssetCollectorProfiler {
             println!("{}", "=".repeat(AssetCollectorProfiler::get_terminal_length()));
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use crate::{asset_collector, asset_collector::ROOT_DIRECTORY, io_package::PackageSummary2, io_toc::IoStoreTocHeaderType3, toc_factory, 
+        toc_factory::TocResolverCommon, toc_factory::TARGET_TOC, toc_factory::DEFAULT_COMPRESSION_BLOCK_ALIGNMENT};
+    /* 
+    #[test]
+    fn test_collect_assets() {
+        let mods = vec!["p3rpc.catherinefont", "p3rpc.classroomcheatsheet", "p3rpc.controlleruioverhaul.xbox", 
+        "p3rpc.femc", "p3rpc.isitworking", "p3rpc.modmenu", "p3rpc.nocinematicbars", "p3rpc.removetalkfromdialogue",
+        "p3rpc.rewatchtv", "p3rpc.ryojioutfit", "p3rpc.usefuldescriptions"];
+        //let mods = vec!["p3rpc.femc"];
+        let instant = std::time::Instant::now();
+        let mut timers: Vec<u128> = Vec::with_capacity(mods.len());
+        let base_path = std::env::var("RELOADEDIIMODS").unwrap_or_else(|err| panic!("Environment variable \"RELOADEDIIMODS\" is missing"));
+        for (i, curr_mod) in mods.iter().enumerate() {
+            asset_collector::add_from_folders(curr_mod, &(base_path.clone() + "/" + curr_mod + "/UnrealEssentials"));
+            timers.insert(i, instant.elapsed().as_micros());
+        }
+        asset_collector::print_asset_collector_results();
+        for (i, time) in timers.iter().enumerate() {
+            println!("{}: {} ms", mods[i], (time - if i > 0 { timers[i - 1]} else { 0 }) as f64 / 1000f64);
+        }
+        /* 
+        let mut profiler = toc_factory::TocBuilderProfiler::new();
+        let mut resolver = toc_factory::TocResolverType2::new::<
+            crate::io_toc::IoStoreTocHeaderType2
+        >(TARGET_TOC, DEFAULT_COMPRESSION_BLOCK_ALIGNMENT);
+        let root_dir_lock = ROOT_DIRECTORY.lock().unwrap();
+        match (*root_dir_lock).as_ref() {
+            Some(root) => {
+                resolver.flatten_toc_tree(&mut toc_factory::TocFlattenTracker::new(), Arc::clone(&root));
+                let serialize_results = resolver.serialize::<PackageSummary2, IoStoreTocHeaderType3>(&mut profiler, "");
+            },
+            None => todo!(),
+        }
+        */
+    }
+    */
 }

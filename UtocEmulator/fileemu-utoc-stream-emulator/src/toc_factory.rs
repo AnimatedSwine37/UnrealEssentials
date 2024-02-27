@@ -11,7 +11,7 @@ use std::{
 };
 use crate::{
     asset_collector::{
-        MOUNT_POINT, SUITABLE_FILE_EXTENSIONS, ROOT_DIRECTORY, 
+        GAME_ROOT, MOUNT_POINT, SUITABLE_FILE_EXTENSIONS, ROOT_DIRECTORY, 
         TocDirectory, TocDirectorySyncRef, TocFile, TocFileSyncRef},
     io_package::{
         ContainerHeaderPackage,
@@ -26,8 +26,9 @@ use crate::{
         IoStoreTocHeaderCommon, IoStoreTocHeaderType2, IoStoreTocHeaderType3,
         IoStoreTocCompressedBlockEntry, IoOffsetAndLength
     },
+    metadata::{UtocMetadata, UTOC_METADATA},
     platform::Metadata,
-    string::{FString32NoHash, FStringSerializer, FStringSerializerExpectedLength, Hasher, Hasher16}
+    string::{FString32NoHash, FStringSerializer, FStringSerializerExpectedLength, Hasher8, Hasher16}
 };
 
 // Thanks to Swine's work, mod priority is now handled by UnrealEssentials, so there's no need for a _P patch name
@@ -41,7 +42,6 @@ use crate::{
 //  - Support for Type 1 (4.25) and Zen (5.0+) (currently only Type2 is supported (4.25+, 4.26, 4.27))
 //  - Include benchmarking and code coverage tools as per the Reloaded's Rust template - 
 //      https://github.com/Reloaded-Project/reloaded-templates-rust
-pub const TOC_NAME:     &'static str = "UnrealEssentials";
 pub const TARGET_TOC:   &'static str = "UnrealEssentials.utoc";
 pub const TARGET_CAS:   &'static str = "UnrealEssentials.ucas";
 
@@ -174,7 +174,7 @@ impl TocResolverCommon for TocResolverType2 {
             compression_block_alignment: if block_align < 0x10 { 0x10 } else { block_align }, // 0x800 is default for UE 4.27 (isn't saved in toc), 0x0 is used for UE 4.26
             // every file is virtually put on an alignment of [compression_block_size] (in reality, they're only aligned to nearest 16 bytes)
             // offset section defines where each file's data starts, while compress blocks section defines each compression block
-            toc_name_hash: Hasher16::get_cityhash64("Game"), // used for container id (is also the last file in partition) (verified)
+            toc_name_hash: Hasher16::get_cityhash64(GAME_ROOT), // used for container id (is also the last file in partition) (verified)
             chunk_ids: vec![],
             offsets_and_lengths: vec![],
             compression_blocks: vec![],
@@ -201,12 +201,14 @@ impl TocResolverCommon for TocResolverType2 {
         // Set capacity so that vec doesn't realloc
         let mut container_string_pool = CONTAINER_ENTRIES_OSPATH_POOL.lock().unwrap();
         *container_string_pool = Some(Vec::with_capacity(self.files.len()));
+        let mut metadata_pool = UTOC_METADATA.lock().unwrap();
+
         let mut container_header = ContainerHeader::new(self.toc_name_hash);
         let mut container_data = ContainerData { header: vec![], virtual_blocks: vec![] };
         let file_count = self.files.len();
         for i in 0..self.files.len() {
             container_data.virtual_blocks.push(self.serialize_entry::<TSummary>(
-                i, &mut container_header, &mut container_string_pool
+                i, &mut container_header, &mut container_string_pool, &mut metadata_pool
             ));
         }
         container_data.header = self.serialize_container_header::<EN>(&mut container_header);
@@ -304,7 +306,6 @@ impl TocResolverType2 {
         }
         // Iterate through inner directories
         tracker.resolved_directories += 1;
-        //println!("flatten(): {}, id {}", &node.borrow().name, self.resolved_directories - 1);
         if TocDirectory::has_children(Arc::clone(&node)) {
             flat_value.first_child = tracker.resolved_directories;
             values.push(flat_value);
@@ -353,7 +354,9 @@ impl TocResolverType2 {
         container_header
     }
 
-    fn serialize_entry<TSummary: PackageIoSummaryDeserialize>(&mut self, index: usize, container_header: &mut ContainerHeader, pool_guard: &mut MutexGuard<ContainerEntriesType>) -> PartitionBlock {
+    
+    fn serialize_entry<TSummary: PackageIoSummaryDeserialize>(&mut self, index: usize, container_header: &mut ContainerHeader, 
+        pool_guard: &mut MutexGuard<ContainerEntriesType>, meta_guard: &mut MutexGuard<Option<UtocMetadata>>) -> PartitionBlock {
         let target_file = &self.files[index];
         let generated_chunk_id = self.get_file_hash(target_file); // create the hash for the new file
         self.chunk_ids.push(generated_chunk_id); // push once we're sure that the file's valid
@@ -371,7 +374,7 @@ impl TocResolverType2 {
                 ExportBundleHeader4, TSummary, BufReader<File>, byteorder::NativeEndian
             >(
                 &mut file_reader, 
-                self.chunk_ids[index].get_raw_hash(), curr_file.file_size
+                self.chunk_ids[index].get_raw_hash(), curr_file.file_size, &self.files[index].os_path
             ));
         }
         // write into container data
@@ -458,7 +461,7 @@ pub struct TocBuilderProfiler {
 }
 
 impl TocBuilderProfiler {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             successful_files: 0,
             successful_files_size: 0,

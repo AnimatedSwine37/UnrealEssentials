@@ -2,12 +2,13 @@ use bitflags::bitflags;
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use crate::{
     io_package::FGraphPackage,
-    string::{FString32NoHash, FStringSerializer, Hasher, Hasher16},
+    string::{FString32NoHash, FStringSerializer, Hasher8, Hasher16},
 };
 #[cfg(feature = "hash_meta")]
 use sha1::{Sha1, Digest};
 use std::{
     cmp::Ordering,
+    hash::{Hash, Hasher},
     error::Error,
     io::{Cursor, Read, Seek, SeekFrom, Write}
 };
@@ -424,6 +425,13 @@ impl IoChunkId {
     }
     pub fn get_type(&self) -> IoChunkType4 {
         self.obj_type
+    }
+    pub fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Self {
+        let hash = reader.read_u64::<E>().unwrap();
+        let index = reader.read_u16::<E>().unwrap();
+        reader.seek(SeekFrom::Current(1));
+        let obj_type = IoChunkType4::from(reader.read_u8().unwrap());
+        Self { hash, index, obj_type }
     }
 } 
 

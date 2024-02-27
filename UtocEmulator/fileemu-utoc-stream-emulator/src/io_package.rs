@@ -12,7 +12,7 @@ type ExportFilterFlags = u8; // and this one too...
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use crate::{
     pak_package::{FObjectImport, FObjectExport, GameName, NameMap},
-    string::FMappedName,
+    string::{ FMappedName, FStringDeserializerText, FString16, Hasher16 },
     toc_factory::{TocResolverCommon, TocResolverType2}
 };
 use std::{
@@ -95,6 +95,9 @@ impl ObjectImport {
 // Generic package summary implementation that contains fields appropriate for creating virtual container header
 // The fields that are relevant are export_offset, export_bundle_offset and graph_offset
 pub struct PackageSummaryExports {
+    name_offset: u32,
+    name_count: u32,
+    import_offset: u32,
     export_offset: u32,
     export_bundle_offset: u32,
     graph_offset: u32
@@ -131,15 +134,20 @@ pub struct PackageSummary1 { // Unreal Engine 4.25 (untested)
     padding: i32
 }
 
+/* 
 impl PackageIoSummaryDeserialize for PackageSummary1 {
     fn to_package_summary<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<PackageSummaryExports, Box<dyn Error>> {
-        reader.seek(SeekFrom::Current(0xc));
+        reader.seek(SeekFrom::Current(0x4));
+        let name_offset = reader.read_u32::<E>()?; // FPackageSummary->name_map_offset
+        let name_count = 0;
+        let import_offset = reader.read_u32::<E>()?; // FPackageSummary->import_map_offset
         let export_offset = reader.read_u32::<E>()?; // FPackageSummary->export_map_offset
         let export_bundle_offset = reader.read_u32::<E>()?; // FPackageSummary->export_bundle_export
         let graph_offset = reader.read_u32::<E>()?; // FPackageSummary->graph_offset
-        Ok(PackageSummaryExports { export_offset, export_bundle_offset, graph_offset })
+        Ok(PackageSummaryExports { name_offset, name_count, import_offset, export_offset, export_bundle_offset, graph_offset })
     }
 }
+*/
 
 #[repr(C)]
 pub struct PackageSummary2 { // Unreal Engine 4.25+, 4.26-4.27 (normal, plus, chaos)
@@ -161,11 +169,15 @@ pub struct PackageSummary2 { // Unreal Engine 4.25+, 4.26-4.27 (normal, plus, ch
 
 impl PackageIoSummaryDeserialize for PackageSummary2 {
     fn to_package_summary<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<PackageSummaryExports, Box<dyn Error>> {
-        reader.seek(SeekFrom::Current(0x2c));
+        reader.seek(SeekFrom::Current(0x18));
+        let name_offset = reader.read_u32::<E>()?; // FPackageSummary->name_map_offset
+        reader.seek(SeekFrom::Current(0x8));
+        let name_count = (reader.read_u32::<E>()? - 1) / std::mem::size_of::<u64>() as u32; // FPackageSummary->name_map_hashes_size - Algorithm hash
+        let import_offset = reader.read_u32::<E>()?; // FPackageSummary->import_map_offset
         let export_offset = reader.read_u32::<E>()?; // FPackageSummary->export_map_offset
         let export_bundle_offset = reader.read_u32::<E>()?; // FPackageSummary->export_bundle_export
         let graph_offset = reader.read_u32::<E>()?; // FPackageSummary->graph_offset
-        Ok(PackageSummaryExports { export_offset, export_bundle_offset, graph_offset })
+        Ok(PackageSummaryExports { name_offset, name_count, import_offset, export_offset, export_bundle_offset, graph_offset })
     }
 }
 
@@ -217,6 +229,7 @@ pub struct ZenPackageSummaryType1 { // Unreal Engine 5.0-5.2 (untested)
     graph_data_offset: i32
 }
 
+/* 
 impl PackageIoSummaryDeserialize for ZenPackageSummaryType1 {
     fn to_package_summary<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<PackageSummaryExports, Box<dyn Error>> {
         reader.seek(SeekFrom::Current(0x20));
@@ -226,6 +239,7 @@ impl PackageIoSummaryDeserialize for ZenPackageSummaryType1 {
         Ok(PackageSummaryExports { export_offset, export_bundle_offset, graph_offset })
     }
 }
+*/
 
 #[repr(C)]
 pub struct ZenPackageSummaryType2 { // Unreal Engine 5.3 (untested)
@@ -309,10 +323,8 @@ pub struct ExportBundleEntry { // same across all versions of Unreal Engine
     command_type: ExportBundleCommandType
 }
 pub trait ExportBundle {
-    // Create a list of export bundles from a serialized byte stream. It's up to the user to ensure that the cursor is in the correct position
-    fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<Vec<ExportBundleEntry>, Box<dyn Error>>;
     // Get the number of export bundles that a package has. This info is used to build it's entry in 
-    fn get_export_bundle_count(entries: &Vec<ExportBundleEntry>) -> u32;
+    fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(export_bundle_offset: u32, graph_offset: u32, reader: &mut R) -> u32;
 }
 
 #[repr(C)]
@@ -321,25 +333,46 @@ pub struct ExportBundleHeader4 { // Unreal Engine 4.25-4.27
     entry_count: u32,
 }
 
-impl ExportBundle for ExportBundleHeader4 {
-    fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut R) -> Result<Vec<ExportBundleEntry>, Box<dyn Error>> {
-        reader.read_u32::<E>()?; // FirstEntryIndex, not important
-        let entry_count = reader.read_u32::<E>()?;
-        let mut entries = Vec::with_capacity(entry_count as usize);
-        for _ in 0..entry_count {
-            let local_export_index = reader.read_u32::<E>()?;
-            let command_type = reader.read_u32::<E>()?.try_into()?;
-            entries.push(ExportBundleEntry{ local_export_index, command_type })
-        }
-        Ok(entries)
+impl ExportBundleHeader4 {
+    fn new(first_entry_index: u32, entry_count: u32) -> Self {
+        Self { first_entry_index, entry_count }
     }
-    fn get_export_bundle_count(entries: &Vec<ExportBundleEntry>) -> u32 {
-        let mut count = 0;
-        for i in entries {
-            let export_count_maybe = i.local_export_index + 1;
-            count = if export_count_maybe > count { export_count_maybe } else { count };
+
+    fn bundle_entry_sum(bundles: &Vec<ExportBundleHeader4>, to: usize) -> u32 {
+        let mut total_bundles = 0;
+        for i in 0..to {
+            total_bundles += bundles[i].entry_count;
         }
-        count
+        total_bundles
+    }
+}
+
+impl ExportBundle for ExportBundleHeader4 {
+    fn from_buffer<R: Read + Seek, E: byteorder::ByteOrder>(export_bundle_offset: u32, graph_offset: u32, reader: &mut R) -> u32 {
+        // use clues from how the serialized data is structued to determine the export bundle count, since it's not stored as a field in header
+        let mut predicted_export_bundles: Vec<ExportBundleHeader4> = vec![];
+        loop {
+            let first_index = reader.read_u32::<E>().unwrap();
+            // export bundle indices must be contiguous (0, 32), (32, 20), (52, 20)
+            if predicted_export_bundles.len() > 0 && first_index != predicted_export_bundles.last().unwrap().entry_count { 
+                break;
+            } 
+            let export_bundle_entries = reader.read_u32::<E>().unwrap();
+            if export_bundle_entries == 0 { // no need to continue
+                break;
+            }
+            predicted_export_bundles.push(ExportBundleHeader4::new(first_index, export_bundle_entries));
+        }
+        let actual_entries = (graph_offset - export_bundle_offset - predicted_export_bundles.len() as u32 * 8) / 8; // 8 -> sizeof(FExportBumdleEntry)
+        let mut actual_export_bundle_count = predicted_export_bundles.len();
+        loop {
+            if actual_export_bundle_count == 0 || actual_entries == ExportBundleHeader4::bundle_entry_sum(&predicted_export_bundles, actual_export_bundle_count) {
+                break
+            }
+            actual_export_bundle_count -= 1;
+        }
+        let return_value = if actual_export_bundle_count > 0 { actual_export_bundle_count as u32 } else { 1 };
+        return_value
     }
 }
 
@@ -396,19 +429,44 @@ impl ContainerHeaderPackage {
         TSummary: PackageIoSummaryDeserialize,
         TReader: Read + Seek,
         TByteOrder: byteorder::ByteOrder
-    >(file_reader: &mut TReader, hash: u64, size: u64) -> Self { // consume the file object, we're only going to need it in here
-        type Endian = byteorder::NativeEndian;
+    >(file_reader: &mut TReader, hash: u64, size: u64, path: &str) -> Self { // consume the file object, we're only going to need it in here
         let package_summary = TSummary::to_package_summary::<TReader, TByteOrder>(file_reader).unwrap();
         let export_count = package_summary.get_export_count() as u32;
         file_reader.seek(SeekFrom::Start(package_summary.export_bundle_offset as u64)).unwrap(); // jump to FExportBundleHeader start
-        let export_bundles = TExportBundle::from_buffer::<TReader, Endian>(file_reader).unwrap(); // Deserialize ExportBundle to get export bundle count
-        let export_bundle_count = TExportBundle::get_export_bundle_count(&export_bundles); // Go through each export bundle to look for the highest index
+        let export_bundle_count = TExportBundle::from_buffer::<TReader, TByteOrder>(
+            package_summary.export_bundle_offset, package_summary.graph_offset, file_reader
+        ); // Go through each export bundle to look for the highest index
         file_reader.seek(SeekFrom::Start(package_summary.graph_offset as u64)).unwrap(); // go to FGraphPackage (imported_packages_count)
-        let graph_packages = FGraphPackage::list_from_buffer::<TReader, Endian>(file_reader);
+        let graph_packages = FGraphPackage::list_from_buffer::<TReader, TByteOrder>(file_reader);
+        // previously, utoc emulator only relied on obtaining it's container header import ids from the package's graph package ids (which in itself was a bit of a hack)
+        // however, this causes issues in regards to localized data, since graph package also includes ids for localization data not included in the container header
+        // this causes a lot of weird behaviour. This hack involves reading the first file entries (Unreal always serializes asset file paths first, followed by script paths)
+        // and then verifying that it's hash is within the graph package hashes. if both conditions are met, then it's allowed to be added as an import
         let mut import_ids = Vec::with_capacity(graph_packages.len());
-        for i in &graph_packages {
-            import_ids.push(i.imported_package_id);
+        if export_bundle_count == 1 {
+            for i in &graph_packages {
+                import_ids.push(i.imported_package_id);
+            }
+        } else {
+            file_reader.seek(SeekFrom::Start(package_summary.name_offset as u64)).unwrap();
+            let mut names = vec![];
+            for i in 0..package_summary.name_count {
+                names.push(FString16::from_buffer_text::<TReader, TByteOrder>(file_reader).unwrap().unwrap());
+            }
+            let mut path_name_hashes = vec![];
+            loop { // we only want to hash file paths
+                if path_name_hashes.len() == names.len() || !names[path_name_hashes.len()].starts_with("/") {
+                    break;
+                }
+                path_name_hashes.push(Hasher16::get_cityhash64(&names[path_name_hashes.len()]));
+            }
+            for i in &graph_packages {
+                if path_name_hashes.contains(&i.imported_package_id) {
+                    import_ids.push(i.imported_package_id);
+                }
+            }
         }
+        //println!("ASSET {}, {} imports, {} export bundles", path, import_ids.len(), export_bundle_count);
         let load_order = 0; // This doesn't seem to matter?
         Self {
             hash,
@@ -455,8 +513,7 @@ impl ContainerHeaderPackage {
     pub fn to_buffer_store_entry<W: Write + Seek, E: byteorder::ByteOrder>(&self, writer: &mut W, base_offset: u64, curr_offset: &mut u64) -> Result<(), Box<dyn Error>> {
         writer.write_u64::<E>(self.export_bundle_size)?; // 0x0
         writer.write_u32::<E>(self.export_count)?; // 0x8
-        //writer.write_u32::<E>(self.export_bundle_count)?; // 0xc
-        writer.write_u32::<E>(1)?; // 0xc
+        writer.write_u32::<E>(self.export_bundle_count)?; // 0xc
         writer.write_u32::<E>(self.load_order)?; // 0x10
         writer.write_u32::<E>(0)?; // 0x14 padding
         let relative_offset = if self.import_ids.len() > 0 { Some((base_offset + *curr_offset - writer.stream_position().unwrap()) as u32) } else { None };
@@ -536,127 +593,37 @@ pub fn is_valid_asset_type<R: Read + Seek, E: byteorder::ByteOrder>(reader: &mut
     magic_check != UASSET_MAGIC
 }
 
-/*
-#[derive(Debug)]
-#[allow(dead_code)]
-pub struct ObjectExport3<'a> { // Unreal Engine 5.0+
-    pub cooked_serial_offset: i64,
-    pub cooked_serial_size: i64,
-    pub object_name: &'a str,
-    pub outer_export: i32, // refers to ith entry in export map
-    pub class_name: Option<&'a str>,
-    pub super_name: Option<&'a str>,
-    pub template_name: Option<&'a str>,
-    pub public_export_hash: u64,
-    pub object_flags: ObjectFlags,
-    pub filter_flags: ExportFilterFlags
-}
+#[cfg(test)]
+mod tests {
+    use std::{
+        env,
+        fs::File,
+        io::BufReader,
+        path::PathBuf
+    };
+    use byteorder::NativeEndian;
+    use crate::{
+        io_package::{ ContainerHeaderPackage, ExportBundleHeader4, PackageSummary2 },
+        platform::Metadata
+    };
 
-
-impl<'a> ObjectExportWriter for ObjectExport3<'a> {
-
-}
-*/
-
-// Name Map: Vec of FString + u64 Hashes
-
-// Import Map: Vec of u64 Hashes (derived from the import file name)
-// TODO: Rename this to IoStoreObjectIndex
-/* 
-#[derive(Debug, PartialEq)]
-pub enum ObjectImport {
-    ScriptImport(String),
-    PackageImport(String),
-    Empty
-}
-/* 
-#[derive(Debug)]
-pub struct ObjectImport {
-    pub import_file: Option<String>
-}
-*/
-
-impl ObjectImport {
-    pub fn to_buffer<W: Write, E: byteorder::ByteOrder>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
-        // Write out a single IoStoreObjectIndex hash to IO Store
-        // Value to hash is ([package_name]/)[path]
-        match self {
-            Self::ScriptImport(path)  => ObjectImport::write_hash::<W, E>(path, writer, IoStoreObjectIndexType::ScriptImport),
-            Self::PackageImport(path) => ObjectImport::write_hash::<W, E>(path, writer, IoStoreObjectIndexType::PackageImport),
-            Self::Empty => {
-                writer.write_u64::<E>(u64::MAX)?; // write_hash(path, writer, IoStoreObjectIndexType::Null)
-                Ok(())
-            },
-        };
-        Ok(())
+    fn get_export_counts_for_asset(path: &str) {
+        let os_file = File::open(path).unwrap();
+        let file_size = Metadata::get_file_size(&os_file);
+        let mut os_reader = BufReader::new(os_file);
+        ContainerHeaderPackage::from_package_summary::<
+            ExportBundleHeader4, PackageSummary2, BufReader<File>, NativeEndian
+        >(&mut os_reader, 0, file_size, &format!("aa"));
     }
 
-    fn write_hash<W: Write, E: byteorder::ByteOrder>(path: &str, writer: &mut W, obj_type: IoStoreObjectIndexType) -> Result<(), Box<dyn Error>> {
-        let mut to_hash = String::from(path);
-        to_hash = to_hash.replace(".", "/"); // regex: find [.:]
-        to_hash = to_hash.replace(":", "/");
-        writer.write_u64::<E>(
-            IoStoreObjectIndex::generate_hash(&to_hash, obj_type).into()
-        )?;
-        Ok(())
+    #[test]
+    fn get_bundle_count() {
+        let base_path = env::var("RELOADEDIIMODS").unwrap_or_else(|err| panic!("Environment variable \"RELOADEDIIMODS\" is missing"));
+        //let target_asset: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "Xrd777", "Blueprints", "UI", "SaveLoad", "BP_SaveLoadDraw.uasset"].iter().collect();
+        //get_export_counts_for_asset(target_asset.to_str().unwrap());
+        //let target_asset_2: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "L10N", "en", "Xrd777", "Field", "Data", "DataTable", "Texts", "DT_FldPlaceName.uasset"].iter().collect();
+        //get_export_counts_for_asset(target_asset_2.to_str().unwrap());
+        let target_asset_3: PathBuf = [&base_path, "p3rpc.femc", "UnrealEssentials", "P3R", "Content", "Xrd777", "Characters", "Player", "PC0002", "Models", "SK_PC0002_C991.uasset"].iter().collect();
+        get_export_counts_for_asset(target_asset_3.to_str().unwrap());
     }
-
-    // Convert FObjectImport into named ObjectImport
-    pub fn from_pak_asset<N: NameMap>(import_map: &Vec<FObjectImport>, name_map: &N) -> Vec<ObjectImport> {
-        let mut resolves = vec![];
-        for (i, v) in import_map.into_iter().enumerate() {
-            println!("{}, {:?}", i, v);
-            match v.resolve(name_map, import_map) {
-                Ok(obj) => resolves.push(obj),
-                Err(e) => panic!("Error converting PAK formatted import to IO Store import on ID {} \nValue {:?}\nReason: {}", i, v, e.to_string())
-            }
-        }
-        resolves
-    }
-
-    pub fn map_to_buffer<W: Write, E: byteorder::ByteOrder>(map: &Vec<Self>, writer: &mut W) -> Result<(), Box<dyn Error>> {
-        for i in map {
-            i.to_buffer::<W, E>(writer)?;
-        }
-        Ok(())
-    }
-}*/
-/*
-pub trait ObjectExportWriter {
-    fn to_buffer<
-        W: Write,
-        N: NameMap,
-        E: byteorder::ByteOrder
-    >(&self, writer: &mut W, names: &N) -> Result<(), Box<dyn Error>>;
-
-    fn resolve<
-        G: GameName,
-        N: NameMap,
-    >(import: &crate::pak_package::FObjectExport, names: &N, file_name: &str, game_name: &G) -> impl ObjectExportWriter;
 }
-
-#[derive(Debug)]
-#[allow(dead_code)]
-pub struct ObjectExport1<'a> { // Unreal Engine 4.25
-    pub serial_size: i64,
-    pub object_name: &'a str,
-    pub outer_export: i32, // refers to ith entry in export map
-    pub class_name: Option<&'a str>,
-    pub super_name: Option<&'a str>,
-    pub template_name: Option<&'a str>,
-    pub global_import_name: String,
-    pub object_flags: ObjectFlags,
-    pub filter_flags: ExportFilterFlags
-}
-
-
-impl<'a> ObjectExportWriter for ObjectExport1<'a> {
-    
-}
-
-#[derive(Debug)]
-pub struct MappedName<'a> {
-    pub name: &'a str,
-    pub value: FMappedName
-}
-*/
