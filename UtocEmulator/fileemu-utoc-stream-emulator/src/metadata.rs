@@ -98,4 +98,7 @@ impl UtocMetadata {
         }
         return UtocMetaImportType::GraphPackageUnvalidated;
     }
+    pub fn get_manual_import(&self, hash: u64) -> Option<&Vec<u64>> {
+        self.manual_import_assets.get(&hash)
+    }
 }

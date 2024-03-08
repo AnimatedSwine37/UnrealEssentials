@@ -462,8 +462,11 @@ impl ContainerHeaderPackage {
     }
     // If required, import ids can be manually specified from the metadata file. Trying to generate a
     // UCAS file with no external metadata was always going to be a challenge
-    fn import_from_metadata_file(meta_guard: &mut MutexGuard<Option<UtocMetadata>>) -> Vec<u64> {
-        vec![]
+    fn import_from_metadata_file(meta: &UtocMetadata, hash: u64) -> Vec<u64> {
+        match meta.get_manual_import(hash) {
+            Some(n) => n.clone(),
+            None => vec![]
+        }
     }
     // Parse the package file to extract the values needed to build a store entry in the container header
     pub fn from_package_summary<
@@ -487,7 +490,7 @@ impl ContainerHeaderPackage {
                         //println!("VALIDATE PACKAGE {} ({:X})", path, hash);
                         ContainerHeaderPackage::import_from_graph_packages_validated::<TReader, TByteOrder>(file_reader, &package_summary, &graph_packages)
                     },
-                    UtocMetaImportType::Manual => ContainerHeaderPackage::import_from_metadata_file(meta_guard),
+                    UtocMetaImportType::Manual => ContainerHeaderPackage::import_from_metadata_file(m, hash),
                     UtocMetaImportType::GraphPackageUnvalidated => ContainerHeaderPackage::imports_from_graph_packges_unvalidated(&graph_packages)
                 }
             },
