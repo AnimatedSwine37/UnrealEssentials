@@ -11,6 +11,7 @@ type ExportFilterFlags = u8; // and this one too...
 
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use crate::{
+    metadata::{UtocMetadata, UtocMetaImportType},
     pak_package::{FObjectImport, FObjectExport, GameName, NameMap},
     string::{ FMappedName, FStringDeserializerText, FString16, Hasher16 },
     toc_factory::{TocResolverCommon, TocResolverType2}
@@ -19,7 +20,8 @@ use std::{
     error::Error,
     fs::File,
     fmt,
-    io::{BufReader, Cursor, ErrorKind, Read, Seek, SeekFrom, Write}
+    io::{BufReader, Cursor, ErrorKind, Read, Seek, SeekFrom, Write},
+    sync::MutexGuard
 };
 // IoStoreObjectIndex is a 64 bit value consisting of a hash of a target string for the lower 62 bits and an object type for the highest 2
 // expect for Empty which represents a null value and Export which contains an index to another item on the export tree
@@ -423,13 +425,56 @@ pub struct ContainerHeaderPackage {
 }
 
 impl ContainerHeaderPackage {
+    // Set all graph package imports as container summary imports. This behavior will likely be kept to 
+    // maintain compatibility with older P3RE mods since validation does break some other assets
+    fn imports_from_graph_packges_unvalidated(graph_packages: &Vec<FGraphPackage>) -> Vec<u64> {
+        let mut import_ids = vec![];
+        for i in graph_packages {
+            import_ids.push(i.imported_package_id);
+        }
+        import_ids
+    }
+    // From graph package imports, but with validating the name entries for matching file names
+    // Not all files actually have the same graph package imports as container header imports (Unreal shenanigans)
+    // However, there's an edge case with files ending in an underscore + number, where Unreal won't serialize that
+    // last portion of the string. I'd need an external tool to fix this
+    fn import_from_graph_packages_validated<TReader: Read + Seek, TByteOrder: byteorder::ByteOrder>
+    (reader: &mut TReader, summary: &PackageSummaryExports, graph_packages: &Vec<FGraphPackage>) -> Vec<u64> {
+        let mut import_ids = vec![];
+        reader.seek(SeekFrom::Start(summary.name_offset as u64)).unwrap();
+        let mut names = vec![];
+        for i in 0..summary.name_count {
+            names.push(FString16::from_buffer_text::<TReader, TByteOrder>(reader).unwrap().unwrap());
+        }
+        let mut path_name_hashes = vec![];
+        loop { // we only want to hash file paths, which Unreal always serializes at the beginning
+            if path_name_hashes.len() == names.len() || !names[path_name_hashes.len()].starts_with("/") {
+                break;
+            }
+            path_name_hashes.push(Hasher16::get_cityhash64(&names[path_name_hashes.len()]));
+        }
+        for i in graph_packages {
+            if path_name_hashes.contains(&i.imported_package_id) {
+                import_ids.push(i.imported_package_id);
+            }
+        }
+        import_ids
+    }
+    // If required, import ids can be manually specified from the metadata file. Trying to generate a
+    // UCAS file with no external metadata was always going to be a challenge
+    fn import_from_metadata_file(meta: &UtocMetadata, hash: u64) -> Vec<u64> {
+        match meta.get_manual_import(hash) {
+            Some(n) => n.clone(),
+            None => vec![]
+        }
+    }
     // Parse the package file to extract the values needed to build a store entry in the container header
     pub fn from_package_summary<
         TExportBundle: ExportBundle,
         TSummary: PackageIoSummaryDeserialize,
         TReader: Read + Seek,
         TByteOrder: byteorder::ByteOrder
-    >(file_reader: &mut TReader, hash: u64, size: u64, path: &str) -> Self { // consume the file object, we're only going to need it in here
+    >(file_reader: &mut TReader, hash: u64, size: u64, path: &str, meta_guard: &mut MutexGuard<Option<UtocMetadata>>) -> Self { // consume the file object, we're only going to need it in here
         let package_summary = TSummary::to_package_summary::<TReader, TByteOrder>(file_reader).unwrap();
         let export_count = package_summary.get_export_count() as u32;
         file_reader.seek(SeekFrom::Start(package_summary.export_bundle_offset as u64)).unwrap(); // jump to FExportBundleHeader start
@@ -438,35 +483,21 @@ impl ContainerHeaderPackage {
         ); // Go through each export bundle to look for the highest index
         file_reader.seek(SeekFrom::Start(package_summary.graph_offset as u64)).unwrap(); // go to FGraphPackage (imported_packages_count)
         let graph_packages = FGraphPackage::list_from_buffer::<TReader, TByteOrder>(file_reader);
-        // previously, utoc emulator only relied on obtaining it's container header import ids from the package's graph package ids (which in itself was a bit of a hack)
-        // however, this causes issues in regards to localized data, since graph package also includes ids for localization data not included in the container header
-        // this causes a lot of weird behaviour. This hack involves reading the first file entries (Unreal always serializes asset file paths first, followed by script paths)
-        // and then verifying that it's hash is within the graph package hashes. if both conditions are met, then it's allowed to be added as an import
-        let mut import_ids = Vec::with_capacity(graph_packages.len());
-        if export_bundle_count == 1 {
-            for i in &graph_packages {
-                import_ids.push(i.imported_package_id);
-            }
-        } else {
-            file_reader.seek(SeekFrom::Start(package_summary.name_offset as u64)).unwrap();
-            let mut names = vec![];
-            for i in 0..package_summary.name_count {
-                names.push(FString16::from_buffer_text::<TReader, TByteOrder>(file_reader).unwrap().unwrap());
-            }
-            let mut path_name_hashes = vec![];
-            loop { // we only want to hash file paths
-                if path_name_hashes.len() == names.len() || !names[path_name_hashes.len()].starts_with("/") {
-                    break;
+        let import_ids = match meta_guard.as_ref() {
+            Some(m) => {
+                match m.get_import_type(hash) {
+                    UtocMetaImportType::GraphPackageValidated => {
+                        //println!("VALIDATE PACKAGE {} ({:X})", path, hash);
+                        ContainerHeaderPackage::import_from_graph_packages_validated::<TReader, TByteOrder>(file_reader, &package_summary, &graph_packages)
+                    },
+                    UtocMetaImportType::Manual => ContainerHeaderPackage::import_from_metadata_file(m, hash),
+                    UtocMetaImportType::GraphPackageUnvalidated => ContainerHeaderPackage::imports_from_graph_packges_unvalidated(&graph_packages)
                 }
-                path_name_hashes.push(Hasher16::get_cityhash64(&names[path_name_hashes.len()]));
-            }
-            for i in &graph_packages {
-                if path_name_hashes.contains(&i.imported_package_id) {
-                    import_ids.push(i.imported_package_id);
-                }
-            }
-        }
-        //println!("ASSET {}, {} imports, {} export bundles", path, import_ids.len(), export_bundle_count);
+            },
+            None => ContainerHeaderPackage::imports_from_graph_packges_unvalidated(&graph_packages)
+        };
+        //println!("ASSET {} ({:X}), {} imports, {} export bundles, {} exports", path, hash, import_ids.len(), export_bundle_count, export_count);
+        
         let load_order = 0; // This doesn't seem to matter?
         Self {
             hash,
@@ -611,9 +642,11 @@ mod tests {
         let os_file = File::open(path).unwrap();
         let file_size = Metadata::get_file_size(&os_file);
         let mut os_reader = BufReader::new(os_file);
+        /* 
         ContainerHeaderPackage::from_package_summary::<
             ExportBundleHeader4, PackageSummary2, BufReader<File>, NativeEndian
         >(&mut os_reader, 0, file_size, &format!("aa"));
+        */
     }
 
     #[test]

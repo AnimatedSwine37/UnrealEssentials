@@ -295,7 +295,7 @@ pub fn add_from_folders_inner(parent: TocDirectorySyncRef, os_path: &PathBuf, pr
                                 if *utoc_meta_lock == None {
                                     *utoc_meta_lock = Some(UtocMetadata::new());
                                 }
-                                utoc_meta_lock.as_mut().unwrap().add_entries(fs::read(fs_obj.path()).unwrap());
+                                utoc_meta_lock.as_mut().unwrap().add_entries::<byteorder::NativeEndian>(fs::read(fs_obj.path()).unwrap());
                             } else {
                                 profiler.add_skipped_file(fs_obj.path().to_str().unwrap(), format!("No file extension"), file_size);
                             }
