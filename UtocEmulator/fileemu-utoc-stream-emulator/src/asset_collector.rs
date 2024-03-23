@@ -22,7 +22,7 @@ pub static ROOT_DIRECTORY: Mutex<Option<TocDirectorySyncRef>> = Mutex::new(None)
 pub static ASSET_COLLECTOR_PROFILER: Mutex<Option<AssetCollectorProfiler>> = Mutex::new(None);
 
 // Create tree of assets that can be used to build a TOC
-pub fn add_from_folders(mod_id: &str, mod_path: &str) {
+pub fn add_from_folders(mod_path: &str) {
     // mod loading happens synchronously, safe to unwrap
     let mut profiler_lock = ASSET_COLLECTOR_PROFILER.lock().unwrap();
     if *profiler_lock == None { // Check profiler is active
@@ -30,7 +30,7 @@ pub fn add_from_folders(mod_id: &str, mod_path: &str) {
     }
     let mod_path: PathBuf = PathBuf::from(mod_path);
     if Path::exists(Path::new(&mod_path)) {
-        let mut profiler_mod = AssetCollectorProfilerMod::new(mod_id, mod_path.to_str().unwrap());
+        let mut profiler_mod = AssetCollectorProfilerMod::new(mod_path.to_str().unwrap());
         let mut root_dir_lock = ROOT_DIRECTORY.lock().unwrap();
         if let None = *root_dir_lock {
             *root_dir_lock = Some(TocDirectory::new_rc(None));
@@ -400,22 +400,20 @@ impl AssetCollectorProfilerModContents {
 
 #[derive(Debug, PartialEq)]
 pub struct AssetCollectorProfilerMod {
-    uid: String, // p3rpc.modname
     os_path: String,
     data: AssetCollectorProfilerModContents
 }
 
 impl AssetCollectorProfilerMod {
-    pub fn new(mod_id: &str, mod_path: &str) -> Self {
+    pub fn new(mod_path: &str) -> Self {
         Self {
-            uid: mod_id.to_owned(),
             os_path: mod_path.to_owned(),
             data: AssetCollectorProfilerModContents::new()
         }
     }
 
     fn print(&self) {
-        println!("{}", self.uid);
+        println!("{}", self.os_path);
         self.data.print();
     }
 }

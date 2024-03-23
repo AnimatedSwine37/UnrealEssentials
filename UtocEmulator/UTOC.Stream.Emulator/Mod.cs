@@ -73,7 +73,7 @@ namespace UTOC.Stream.Emulator
             _log = new Logger(_logger, _configuration.LogLevel);
 
             // Expose API
-            _api = new Api(Initialise, (modId, folder) => _emu.AddFromFolder(modId, folder));
+            _api = new Api(Initialise, (folder) => _emu.AddFromFolder(folder));
             _modLoader.AddOrReplaceController(context.Owner, _api);
         }
 
@@ -134,7 +134,7 @@ namespace UTOC.Stream.Emulator
             _modLoader.ModLoading -= OnModLoading;
             _emu.OnLoaderInit();
         }
-        private void OnModLoading(IModV1 mod, IModConfigV1 conf) => _emu.OnModLoading(conf.ModId, _modLoader.GetDirectoryForModId(conf.ModId));
+        private void OnModLoading(IModV1 mod, IModConfigV1 conf) => _emu.OnModLoading(_modLoader.GetDirectoryForModId(conf.ModId));
 
         public bool OpenContainer(nuint thisPtr, nuint containerFilePath, nuint containerFileHandle, nuint containerFileSize)
         { // This is a temporary measure due to a bug in FileEmulationFramework

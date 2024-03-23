@@ -5,18 +5,15 @@ namespace UTOC.Stream.Emulator;
 public class Api : IUtocEmulator
 {
     private InitialiseDelegate _initialise;
-    private Action<string, string> _addFromFolder;
+    private Action<string> _addFromFolder;
 
-    internal Api(InitialiseDelegate initialise, Action<string, string> addFromFolder)
+    internal Api(InitialiseDelegate initialise, Action<string> addFromFolder)
     {
         _initialise = initialise;
         _addFromFolder = addFromFolder;
     }
 
-    public void AddFromFolder(string modId, string folder)
-    {
-        _addFromFolder(modId, folder);
-    }
+    public void AddFromFolder(string folder) => _addFromFolder(folder);
 
     public void Initialise(TocType? tocType, PakType pakType, string fileIoStoreSig, string readBlockSig, Action<string> addPakFolder, Action<string> removePakFolder)
     {

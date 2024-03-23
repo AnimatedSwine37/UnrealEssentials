@@ -10,10 +10,9 @@ use std::{
 #[no_mangle]
 #[allow(non_snake_case)]
 // modId is used by the asset collector profiler
-pub unsafe extern "C" fn AddFromFolders(modId: *const u16, modIdLength: usize, modPath: *const u16, modPathLength: usize) {
-    let mod_id_slice = std::slice::from_raw_parts(modId, modIdLength);
+pub unsafe extern "C" fn AddFromFolders(modPath: *const u16, modPathLength: usize) {
     let mod_path_slice = std::slice::from_raw_parts(modPath, modPathLength);
-    asset_collector::add_from_folders(&String::from_utf16(mod_id_slice).unwrap(), &String::from_utf16(mod_path_slice).unwrap());
+    asset_collector::add_from_folders(&String::from_utf16(mod_path_slice).unwrap());
 }
 
 #[no_mangle]

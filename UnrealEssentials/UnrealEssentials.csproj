@@ -50,6 +50,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\UnrealEssentials.Interfaces\UnrealEssentials.Interfaces.csproj" />
     <ProjectReference Include="..\UTOC.Stream.Emulator.Interfaces\UTOC.Stream.Emulator.Interfaces.csproj" />
   </ItemGroup>
 

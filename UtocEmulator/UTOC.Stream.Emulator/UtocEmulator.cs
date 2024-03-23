@@ -4,8 +4,8 @@ using FileEmulationFramework.Lib.IO;
 using FileEmulationFramework.Lib.IO.Struct;
 using FileEmulationFramework.Lib.Utilities;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
 using UTOC.Stream.Emulator.Interfaces;
 using Strim = System.IO.Stream;
 
@@ -35,7 +35,7 @@ namespace UTOC.Stream.Emulator
         private readonly ConcurrentDictionary<string, Strim?> _pathToStream = new(StringComparer.OrdinalIgnoreCase);
 
         public UtocEmulator(Logger logger, bool canDump, string modPath, Action<string> addPakFolderCb) 
-        { 
+        {
             _logger = logger; 
             DumpFiles = canDump;
             ModPath = modPath;
@@ -190,23 +190,19 @@ namespace UTOC.Stream.Emulator
             _logger.Info($"[UtocEmulator] Container Written To {path}");
         }
 
-        public void OnModLoading(string mod_id, string dir_path)
+        public void OnModLoading(string dir_path)
         {
             var mod_path = Path.Combine(dir_path, "UTOC", "UnrealEssentials.utoc");
-            nint mod_id_unicode = Marshal.StringToHGlobalUni(mod_id);
             nint mod_path_unicode = Marshal.StringToHGlobalUni(mod_path);
-            RustApi.AddFromFolders(mod_id_unicode, mod_id.Length, mod_path_unicode, mod_path.Length);
+            RustApi.AddFromFolders(mod_path_unicode, mod_path.Length);
             Marshal.FreeHGlobal(mod_path_unicode);
-            Marshal.FreeHGlobal(mod_id_unicode);
         }
 
-        public void AddFromFolder(string mod_id, string dir_path)
+        public void AddFromFolder(string dir_path)
         {
             nint mod_path_unicode = Marshal.StringToHGlobalUni(dir_path);
-            nint mod_id_unicode = Marshal.StringToHGlobalUni(mod_id);
-            RustApi.AddFromFolders(mod_id_unicode, mod_id.Length, mod_path_unicode, dir_path.Length);
+            RustApi.AddFromFolders(mod_path_unicode, dir_path.Length);
             Marshal.FreeHGlobal(mod_path_unicode);
-            Marshal.FreeHGlobal(mod_id_unicode);
         }
 
         public void MakeFilesOnInit() // from base Unreal Essentials path

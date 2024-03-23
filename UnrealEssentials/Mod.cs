@@ -14,13 +14,15 @@ using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 using Reloaded.Mod.Interfaces.Internal;
 using Reloaded.Memory.Sigscan.Definitions;
 using UTOC.Stream.Emulator.Interfaces;
+using Reloaded.Mod.Interfaces.Structs.Enums;
+using UnrealEssentials.Interfaces;
 
 namespace UnrealEssentials;
 /// <summary>
 /// Your mod logic goes here.
 /// </summary>
 
-public unsafe class Mod : ModBase // <= Do not Remove.
+public unsafe class Mod : ModBase, IExports // <= Do not Remove.
 {
     /// <summary>
     /// Provides access to the mod loader API.
@@ -68,6 +70,8 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
     private IUtocEmulator _utocEmulator;
     private bool _hasUtocs;
+
+    private IUnrealEssentials _api;
 
     public Mod(ModContext context)
     {
@@ -142,6 +146,10 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         // Gather pak files from mods
         //_modLoader.OnModLoaderInitialized += ModLoaderInit;
         _modLoader.ModLoading += ModLoading;
+
+        // Expose API
+        _api = new Api(AddFolder);
+        _modLoader.AddOrReplaceController(context.Owner, _api);
     }
 
     private bool DoesGameUseUtocs(Signatures sigs)
@@ -160,7 +168,7 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
         return true;
     }
-  
+
     private bool FileExists(nuint thisPtr, char* Filename)
     {
         var fileName = Marshal.PtrToStringUni((nint)Filename);
@@ -218,15 +226,15 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         var path = PakFilePath->ToString();
 
         // A vanilla file, use normal order
-        if(!path.StartsWith(_modsPath))
+        if (!path.StartsWith(_modsPath))
             return _getPakOrderHook.OriginalFunction(PakFilePath);
-        
+
         // One of our files, override order
-        for(int i = 0; i < _pakFolders.Count; i++)
+        for (int i = 0; i < _pakFolders.Count; i++)
         {
             if (path.Contains(_pakFolders[i]))
             {
-                LogDebug($"Set order of {path} to {(i+1)*1000}");
+                LogDebug($"Set order of {path} to {(i + 1) * 1000}");
                 return (i + 1) * 10000;
             }
         }
@@ -239,22 +247,22 @@ public unsafe class Mod : ModBase // <= Do not Remove.
     private nuint PakOpenRead(nuint thisPtr, nint fileNamePtr, bool bAllowWrite)
     {
         var fileName = Marshal.PtrToStringUni(fileNamePtr);
-        if(_configuration.FileAccessLog)
+        if (_configuration.FileAccessLog)
         {
             Log($"Opening: {fileName}");
         }
-        
+
         // No loose file, vanilla behaviour
-        if(!TryFindLooseFile(fileName, out var looseFile))
+        if (!TryFindLooseFile(fileName, out var looseFile))
             return _pakOpenReadHook.OriginalFunction(thisPtr, fileNamePtr, bAllowWrite);
 
         // Get the pointer to the loose file that UE wants
         Log($"Redirecting {fileName} to {looseFile}");
         var looseFilePtr = Marshal.StringToHGlobalUni(looseFile);
         var res = _pakOpenReadHook.OriginalFunction(thisPtr, looseFilePtr, bAllowWrite);
-        
+
         // Clean up
-        Marshal.FreeHGlobal(looseFilePtr); 
+        Marshal.FreeHGlobal(looseFilePtr);
         return res;
     }
 
@@ -287,17 +295,23 @@ public unsafe class Mod : ModBase // <= Do not Remove.
 
     private void ModLoading(IModV1 mod, IModConfigV1 modConfig)
     {
-            var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "UnrealEssentials");
-            if (!Directory.Exists(modsPath))
-                return;
-            _pakFolders.Add(modsPath);
-            AddRedirections(modsPath);
-            Log($"Loading files from {modsPath}");
+        var modsPath = Path.Combine(_modLoader.GetDirectoryForModId(modConfig.ModId), "UnrealEssentials");
+        if (!Directory.Exists(modsPath))
+            return;
 
-            // Prevent UTOC Emulator from wasting time creating UTOCs if the game doesn't use them
-            if(_hasUtocs)
-                _utocEmulator.AddFromFolder(modConfig.ModId, modsPath);
-        }
+        AddFolder(modsPath);
+    }
+
+    private void AddFolder(string folder)
+    {
+        _pakFolders.Add(folder);
+        AddRedirections(folder);
+        Log($"Loading files from {folder}");
+
+        // Prevent UTOC Emulator from wasting time creating UTOCs if the game doesn't use them
+        if (_hasUtocs)
+            _utocEmulator.AddFromFolder(folder);
+    }
 
     private void AddRedirections(string modsPath)
     {
@@ -360,6 +374,8 @@ public unsafe class Mod : ModBase // <= Do not Remove.
         _logger.WriteLine($"[{_modConfig.ModId}] Config Updated: Applying");
     }
     #endregion
+
+    public Type[] GetTypes() => new[] { typeof(IUnrealEssentials) };
 
     #region For Exports, Serialization etc.
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
