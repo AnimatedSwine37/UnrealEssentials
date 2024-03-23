@@ -33,7 +33,16 @@ With a code mod made you'll need to add Unreal Essentials as a dependency by edi
 }
 ```
 
-Then you will need to add a reference to the 
+Then you will need to add the [UnrealEssentials.Interfaces NuGet package](https://www.nuget.org/packages/UnrealEssentials.Interfaces) to your project. 
+In Visual Studio you can do this by right clicking the project and selecting **Manage NuGet Packages...** which will open up a new tab. 
+
+![image](https://github.com/AnimatedSwine37/UnrealEssentials/assets/24914353/da9f5c13-0e32-43ac-adc2-e5ab79ff5647)
+
+In this tab search for `UnrealEssentials.Interfaces` and press **Install** on it.
+
+![image](https://github.com/AnimatedSwine37/UnrealEssentials/assets/24914353/6225f44c-3896-4c02-b8b1-1ac8acbc5bb2)
+
+If you're using a different IDE you'll have to work out how to add NuGet packages to your project yourself.
 
 Now you will be able to get access to the API as described in the [Reloaded documentation on dependency injection](https://reloaded-project.github.io/Reloaded-II/DependencyInjection_Consumer/). For example, your code would likely look like:
 
@@ -61,3 +70,4 @@ unrealEssentials.AddFromFolder(filesPath);
 
 An important part to note is the need for getting the path to your mod's folder using `_modLoader.GetDirectoryForModId(_modConfig.ModId);`. If you do not do this Unreal Essentials will look for files relative to the game's executable instead of your mod.
 
+This folder will essentially be treated as if it were the `UnrealEssentials` folder in the root of your mod so you would format files the same way. In the case of the `TestFolder` example you'd have files like `TestFolder\Game\Content\...`.
