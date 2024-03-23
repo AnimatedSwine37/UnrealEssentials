@@ -2,7 +2,7 @@
   "ModId": "UnrealEssentials",
   "ModName": "Unreal Essentials",
   "ModAuthor": "AnimatedSwine37",
-  "ModVersion": "1.0.2",
+  "ModVersion": "1.1.0",
   "ModDescription": "Allows other mods to easily replace files inside of paks and utocs in Unreal Engine games",
   "ModDll": "UnrealEssentials.dll",
   "ModIcon": "Preview.png",

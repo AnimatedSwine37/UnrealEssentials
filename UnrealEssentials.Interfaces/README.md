@@ -1,0 +1,63 @@
+# Unreal Essentials API
+Using the Unreal Essentials API you can change what files are loaded from your mod using C# code. The main use case for this is adding configuration to mods.
+
+## Setting Up
+Firstly you will need a Reloaded code mod. If you've not set one up before you can follow Reloaded's [documentation](https://reloaded-project.github.io/Reloaded-II/DevelopmentEnvironmentSetup/) to do so.
+
+With a code mod made you'll need to add Unreal Essentials as a dependency by editing the `ModConfig.json` file and adding `UnrealEssentials` to the array of `ModDependencies`. For example, your `ModConfig.json` might look like:
+
+``` json
+{
+  "ModId": "p3rpc.relationshipFortunesPlus",
+  "ModName": "Relationship Fortunes+",
+  "ModAuthor": "AnimatedSwine37",
+  "ModVersion": "1.0.0",
+  "ModDescription": "Adds an option to draw a quick relationship fortune.",
+  "ModDll": "p3rpc.relationshipFortunesPlus.dll",
+  "ModIcon": "Preview.png",
+  "ModR2RManagedDll32": "x86/p3rpc.relationshipFortunesPlus.dll",
+  "ModR2RManagedDll64": "x64/p3rpc.relationshipFortunesPlus.dll",
+  "ModNativeDll32": "",
+  "ModNativeDll64": "",
+  "IsLibrary": false,
+  "ReleaseMetadataFileName": "p3rpc.relationshipFortunesPlus.ReleaseMetadata.json",
+  "PluginData": {},
+  "IsUniversalMod": false,
+  "ModDependencies": [
+    "reloaded.sharedlib.hooks",
+    "UnrealEssentials"
+  ],
+  "OptionalDependencies": [],
+  "SupportedAppId": ["p3r.exe"],
+  "ProjectUrl": ""
+}
+```
+
+Then you will need to add a reference to the 
+
+Now you will be able to get access to the API as described in the [Reloaded documentation on dependency injection](https://reloaded-project.github.io/Reloaded-II/DependencyInjection_Consumer/). For example, your code would likely look like:
+
+```cs
+var unrealEssentialsController = _modLoader.GetController<IUnrealEssentials>();
+if (unrealEssentialsController == null || !unrealEssentialsController.TryGetTarget(out var unrealEssentials))
+{
+    _logger.WriteLine($"[My Mod] Unable to get controller for Unreal Essentials, stuff won't work :(", System.Drawing.Color.Red);
+    return;
+}
+```
+
+You will want to put this in the constructor in `Mod.cs` so it is run when your mod loads.
+
+## Adding Files From Code
+The only thing the API currently can do is add files to be loaded by UnrealEssentials. To do so you use the `AddFromFolder` method of the `IUnrealEssentials` object you got using the above code.
+
+For example, to add files from a folder called `TestFolder` in your mod the code would look like:
+
+```cs
+var modDir = _modLoader.GetDirectoryForModId(_modConfig.ModId);
+var filesPath = Path.Combine(modDir, "TestFolder");
+unrealEssentials.AddFromFolder(filesPath);
+```
+
+An important part to note is the need for getting the path to your mod's folder using `_modLoader.GetDirectoryForModId(_modConfig.ModId);`. If you do not do this Unreal Essentials will look for files relative to the game's executable instead of your mod.
+
