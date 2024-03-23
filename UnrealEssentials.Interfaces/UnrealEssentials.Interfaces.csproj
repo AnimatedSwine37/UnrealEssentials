@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Authors>AnimatedSwine37</Authors>
+    <Authors>AnimatedSwine</Authors>
     <Company />
     <Product />
     <Description>Interfaces for the Unreal Essentials Reloaded Mod</Description>
@@ -16,6 +16,7 @@
     <PackageTags>Reloaded;Unreal</PackageTags>
     <Title>UnrealEssentials.Interfaces</Title>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+	<PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
