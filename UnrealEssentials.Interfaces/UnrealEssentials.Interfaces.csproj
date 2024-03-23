@@ -4,6 +4,29 @@
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Authors>AnimatedSwine37</Authors>
+    <Company />
+    <Product />
+    <Description>Interfaces for the Unreal Essentials Reloaded Mod</Description>
+    <PackageProjectUrl>https://github.com/AnimatedSwine37/UnrealEssentials</PackageProjectUrl>
+    <PackageIcon>Preview.png</PackageIcon>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/AnimatedSwine37/UnrealEssentials</RepositoryUrl>
+    <PackageTags>Reloaded;Unreal</PackageTags>
+    <Title>UnrealEssentials.Interfaces</Title>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\UnrealEssentials\Preview.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
 </Project>

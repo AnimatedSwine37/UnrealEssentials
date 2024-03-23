@@ -9,6 +9,8 @@ Split-Path $MyInvocation.MyCommand.Path | Push-Location
               
 Remove-Item "Publish/Builds" -Recurse -ErrorAction SilentlyContinue
 
+.\PublishInterfaces.ps1
+
 # Create Rust project
 New-Item "Publish/Builds/CurrentVersion" -ItemType Directory
 
