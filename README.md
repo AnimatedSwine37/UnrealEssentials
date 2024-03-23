@@ -7,6 +7,7 @@ A mod for [Reloaded-II](https://reloaded-project.github.io/Reloaded-II/) that ma
 - Removing signature checks so any file can be used
 - Logging file access (inside of PAKs only for now)
 - Support for UE 4.25 to 4.27 games
+- API for adding file replacements from code (see [documentation](/UnrealEssentials.Interfaces/README.md))
 
 ## Planned Features
 - Support for older UE4 versions and UE5
