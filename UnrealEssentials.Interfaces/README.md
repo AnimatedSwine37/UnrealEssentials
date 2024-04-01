@@ -55,7 +55,7 @@ if (unrealEssentialsController == null || !unrealEssentialsController.TryGetTarg
 }
 ```
 
-You will want to put this in the constructor in `Mod.cs` so it is run when your mod loads.
+You will want to put this underneath the `// TODO: Implement some mod logic` comment in the constructor in `Mod.cs` so it is run when your mod loads.
 
 ## Adding Files From Code
 The only thing the API currently can do is add files to be loaded by UnrealEssentials. To do so you use the `AddFromFolder` method of the `IUnrealEssentials` object you got using the above code.
