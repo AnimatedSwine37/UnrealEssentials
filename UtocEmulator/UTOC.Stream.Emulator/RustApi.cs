@@ -30,7 +30,7 @@ namespace UTOC.Stream.Emulator
 
         [DllImport("fileemu_utoc_stream_emulator")]
         public static extern bool BuildTableOfContentsEx(
-            string basePath, uint version, ref nint tocData, ref nint tocLength,
+            nint basePath, nint basePathLength, uint version, ref nint tocData, ref nint tocLength,
             ref nint blocks, ref nint blockCount, ref nint header, ref nint headerSize
         );
     }

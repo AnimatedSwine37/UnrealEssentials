@@ -20,7 +20,8 @@ pub unsafe extern "C" fn AddFromFolders(modPath: *const u16, modPathLength: usiz
 // haiiii Reloaded!!!! :3
 pub unsafe extern "C" fn BuildTableOfContentsEx(
     // UTOC
-    basePath: *const c_char,
+    basePath: *const u16,
+    basePathLength: usize,
     version: u32,
     tocData: *mut *const u8,
     tocLength: *mut u64,
@@ -30,7 +31,8 @@ pub unsafe extern "C" fn BuildTableOfContentsEx(
     header: *mut *const u8,
     headerSize: *mut usize
     ) -> bool {
-    let base_path_owned = CStr::from_ptr(basePath).to_str().unwrap();
+    let mod_path_slice = std::slice::from_raw_parts(basePath, basePathLength);
+    let base_path_owned = &String::from_utf16(mod_path_slice).unwrap();
     let toc_path = base_path_owned.to_owned() + "\\" + TARGET_TOC;
     let cas_path = base_path_owned.to_owned() + "\\" + TARGET_CAS;
     match toc_factory::build_table_of_contents(&toc_path, version) {
