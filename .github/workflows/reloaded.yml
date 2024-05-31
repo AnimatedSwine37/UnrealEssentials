@@ -89,7 +89,7 @@ jobs:
       run: npm install -g auto-changelog
 
     - name: Setup Rust
-      uses: ATiltedTree/setup-rust@v1.0.5
+      uses: hecrj/setup-rust-action@v2.0.1
       with:
         rust-version: nightly
         components: rust-src
