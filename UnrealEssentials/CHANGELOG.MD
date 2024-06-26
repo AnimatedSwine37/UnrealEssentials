@@ -1,3 +1,7 @@
+# 1.1.2
+- Improved clarity of error message when the Unreal Engine version cannot be found.
+- Error now is just a logged message instead of a thrown exception as people regularly enable this on non Unreal Engine games, preventing them from working at all.
+
 # 1.1.1
 - Added support for Shin Megami Tensei V Vengeance
 
