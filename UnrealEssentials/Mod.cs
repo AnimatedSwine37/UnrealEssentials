@@ -95,7 +95,8 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         _modsPath = modPath.Parent!.FullName;
 
         // Get Signatures
-        var sigs = GetSignatures();
+        if(!TryGetSignatures(out var sigs))
+            return;
         _hasUtocs = DoesGameUseUtocs(sigs);
 
         _modLoader.GetController<IUtocEmulator>().TryGetTarget(out _utocEmulator);
@@ -184,15 +185,15 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         return true;
     }
 
-    private Signatures GetSignatures()
+    private bool TryGetSignatures(out Signatures sigs)
     {
         var CurrentProcess = Process.GetCurrentProcess();
         var mainModule = CurrentProcess.MainModule;
         var fileName = Path.GetFileName(mainModule!.FileName);
 
         // Try and find based on file name
-        if (Signatures.VersionSigs.TryGetValue(fileName, out var sigs))
-            return sigs;
+        if (Signatures.VersionSigs.TryGetValue(fileName, out sigs))
+            return true;
 
         // Try and find based on branch name
         _modLoader.GetController<IScannerFactory>().TryGetTarget(out var scannerFactory);
@@ -203,8 +204,11 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
             res = scanner.FindPattern("2B 00 2B 00 75 00 65 00 34 00 2B 00"); // ++ue4+
             if (!res.Found)
             {
-                throw new Exception($"Unable to find Unreal Engine version number." +
-                    $"\nPlease report this!");
+                LogError($"Unable to find Unreal Engine version number, Unreal Essentials will not work!\n" +
+                         $"If this game does not use Unreal Engine please disable Unreal Essentials.\n" +
+                         $"If you are sure this is an Unreal Engine game then please report this at github.com/AnimatedSwine37/UnrealEssentials " +
+                         $"so support can be added.");
+                return false;
             }
         }
 
@@ -212,11 +216,12 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         Log($"Unreal Engine branch is {branch}");
         if (!Signatures.VersionSigs.TryGetValue(branch, out sigs))
         {
-            throw new Exception($"Unable to find signatures for Unreal Engine branch {branch}." +
-                $"\nPlease report this!");
+            LogError($"Unable to find signatures for Unreal Engine branch {branch}, Unreal Essentials will not work!\n" +
+                "Please report this at github.com/AnimatedSwine37/UnrealEssentials.");
+            return false;
         }
 
-        return sigs;
+        return true;
     }
 
     private int GetPakOrder(FString* PakFilePath)
