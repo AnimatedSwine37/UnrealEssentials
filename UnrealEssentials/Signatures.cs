@@ -135,16 +135,19 @@ public struct Signatures
             }
         },
         {
-            "Hi-Fi-RUSH.exe", // Hi-Fi Rush (Modified 4.27)
+            "Hi-Fi-RUSH.exe", // Hi-Fi Rush (Modified 4.27) (Update 9)
             new Signatures
             {
                 GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F0 44 39 78 ??",
                 GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 8D 4C 24 ??",
                 GMalloc = "48 8B 0D ?? ?? ?? ?? 48 85 C9 75 ?? E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B 01 48 8B D3 FF 50 ?? 48 83 C4 20",
                 GetPakOrder = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 89 CF 48 8D 4C 24 ??",
-                PakOpenRead = "4C 8B DC 55 53 57 41 54 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
-                PakOpenAsyncRead = "48 89 5C 24 ?? 55 56 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 90 00 00 00 48 8B 05 ?? ?? ?? ??",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
+                //PakOpenRead = "4C 8B DC 55 53 57 41 54 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
+                PakOpenRead = "4C 8B DC 55 53 57 41 56 49 8D 6B ?? 48 81 EC B8 00 00 00",
+                //PakOpenAsyncRead = "48 89 5C 24 ?? 55 56 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 90 00 00 00 48 8B 05 ?? ?? ?? ??",
+                PakOpenAsyncRead = "48 89 5C 24 ?? 48 89 74 24 ?? 55 57 41 56 48 8D 6C 24 ?? 48 81 EC A0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 44 8B 05 ?? ?? ?? ??",
+                //IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
+                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 40 48 8B F9 45 33 C0",
                 ReadBlocks = "4C 8B DC 49 89 53 ?? 49 89 4B ?? 53 55",
                 FileExists = "48 89 74 24 ?? 41 56 48 83 EC 30 45 33 C9 45 33 C0 48 8B F2 4C 8B F1 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 74 24 ?? 48 83 C4 30 41 5E C3 48 89 5C 24 ?? 48 89 6C 24 ?? 40 32 ED 48 89 7C 24 ?? 33 FF 48 89 7C 24 ?? 8B C7 89 44 24 ?? 8B CF 89 4C 24 ?? 48 85 F6 74 ?? 66 39 06 74 ?? 48 C7 C3 FF FF FF FF 48 FF C3 66 39 04 ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 4C 24 ?? 8B 44 24 ?? 48 8B 7C 24 ?? 03 C3 89 44 24 ?? 3B C1 7E ?? 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 7C 24 ?? 4C 63 C3 48 8B D6 4D 03 C0 48 8B CF E8 ?? ?? ?? ?? 48 8D 54 24 ?? 49 8B CE E8 ?? ?? ?? ?? 0F B6 D8 48 85 FF 74 ?? 48 8B CF E8 ?? ?? ?? ?? 48 8B 7C 24 ?? 84 DB 48 8B 5C 24 ?? 74 ?? 49 8B 4E ?? 48 8B D6 48 8B 01 FF 90 ?? ?? ?? ??",
                 TocVersion = TocType.PartitionSize,

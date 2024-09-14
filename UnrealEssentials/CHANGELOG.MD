@@ -1,3 +1,6 @@
+# 1.1.3
+- Fix support for Hi-Fi RUSH
+
 # 1.1.2
 - Improved clarity of error message when the Unreal Engine version cannot be found.
 - Error now is just a logged message instead of a thrown exception as people regularly enable this on non Unreal Engine games, preventing them from working at all.
