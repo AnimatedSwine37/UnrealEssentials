@@ -43,7 +43,7 @@ internal unsafe class UnrealArray
     {
         private T* _values;
         private int _length;
-        private int _currentIndex;
+        private int _currentIndex = -1;
 
         public TArrayEnumerator(T* values, int length)
         {
