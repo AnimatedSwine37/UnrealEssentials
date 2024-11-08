@@ -119,6 +119,24 @@ public struct Signatures
             }
         },
         {
+            "HogwartsLegacy.exe", // Hogwarts Legacy (4.27)
+            new Signatures
+            {
+                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F8 39 70 ??",
+                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
+                GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 8B C8",
+                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 ?? 00",
+                PakOpenRead = "4C 8B DC 55 53 57 41 54 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
+                PakOpenAsyncRead = "40 53 55 56 41 56 41 57 48 81 EC 90 00 00 00",
+                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
+                FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
+                ReadBlocks = "4C 8B DC 49 89 4B ?? 53 57 41 54",
+                FileExists = "48 89 6C 24 ?? 57 48 83 EC 30 45 33 C9 45 33 C0 48 8B FA 48 8B E9 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 6C 24 ?? 48 83 C4 30 5F C3 33 C0 48 89 5C 24 ?? 48 89 74 24 ?? 8B C8 40 32 F6 48 89 44 24 ?? 48 89 44 24 ?? 48 85 FF 74 ?? 66 39 07 74 ?? 48 C7 C3 FF FF FF FF 0F 1F 84 ?? 00 00 00 00 48 FF C3 66 39 04 ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 4C 24 ?? 8B 44 24 ?? 8D 14 ?? 89 54 24 ?? 3B D1 7E ?? 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 48 8B D7 4C 63 C3 4D 03 C0 E8 ?? ?? ?? ?? 48 8D 54 24 ?? 48 8B CD E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 0F B6 D8 48 85 C9 74 ?? E8 ?? ?? ?? ?? 84 DB 48 8B 5C 24 ?? 74 ?? 48 8B 4D ?? 48 8B D7 48 8B 01 FF 50 ??",
+                TocVersion = TocType.PartitionSize,
+                PakVersion = PakType.Fn64BugFix,
+            }
+        },
+        {
             "ScarletNexus-Win64-Shipping.exe", // Scarlet Nexus (Modified 4.25+)
             new Signatures
             {
