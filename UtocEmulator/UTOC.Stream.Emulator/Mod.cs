@@ -153,7 +153,7 @@ namespace UTOC.Stream.Emulator
         { // This is a temporary measure due to a bug in FileEmulationFramework
             var currentContainer = ResolvedRequest->ContainerFile->Partitions;
             var name = Marshal.PtrToStringUni((nint)ResolvedRequest->ContainerFile->FilePath);
-            if (name.Contains(Constants.UnrealEssentialsName))
+            if (_emu.CasStream != null && name.Contains(Constants.UnrealEssentialsName))
             {
                 currentContainer->FileSize = _emu.CasStream.Length;
             }
