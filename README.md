@@ -6,12 +6,27 @@ A mod for [Reloaded-II](https://reloaded-project.github.io/Reloaded-II/) that ma
 - Loading loose files from UTOCs and PAKs
 - Removing signature checks so any file can be used
 - Logging file access (inside of PAKs only for now)
-- Support for UE 4.25 to 4.27 games
+- Support for UE 4.25 to 4.27 games (see [Supported Games](#supported-games))
 - API for adding file replacements from code (see [documentation](/UnrealEssentials.Interfaces/README.md))
 
 ## Planned Features
 - Support for older UE4 versions and UE5
 - Automatic conversion of cooked uassets to IO Store uassets (see note in [Loose Files](#loose-files))
+
+## Supported Games
+Below is a list of games that are known to work with Unreal Essentials. Just because a game isn't on the list doesn't mean it doesn't work, generally games using Unreal Engine versions 4.25 to 4.27 should work.
+
+If you know of a game that doesn't work you can create an [issue](https://github.com/AnimatedSwine37/UnrealEssentials/issues) and support might be added for it.
+
+| Game       | Notes      |
+|------------|------------|
+| Hi-Fi Rush       | Microsoft Store version is currently broken ([Issue](https://github.com/AnimatedSwine37/UnrealEssentials/issues/13)) |
+| Hogwarts Legacy  |
+| Persona 3 Reload |
+| Sackboy: A Big Adventure |
+| Scarlet Nexus |
+| Shin Megami Tensei V: Vengeance |
+| The Callisto Protocol | Need to use ASI Loader or remove DRM with [Steamless](https://github.com/atom0s/Steamless/) |
 
 ## Usage
 First you'll need to create a Reloaded mod and set Unreal Esentials as a dependency of it. For more details on making a mod check out Reloaded's [documentation](https://reloaded-project.github.io/Reloaded-II/CreatingMods/).
