@@ -17,6 +17,7 @@
     <Title>UnrealEssentials.Interfaces</Title>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 	<PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+	<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
