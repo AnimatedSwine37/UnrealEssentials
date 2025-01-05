@@ -2,54 +2,75 @@
 public unsafe interface IUnrealEssentials
 {
     /// <summary>
-    /// Adds files from the folder at <paramref name="path"/>. 
-    /// This folder is treated like it was the UnrealEssentials folder inside of a mod.
+    /// Adds files from the folder at <paramref name="path"/> 
+    /// This folder is treated like it was the UnrealEssentials folder inside of a mod
     /// </summary>
-    /// <param name="path">Path to the folder that contains files to be loaded.</param>
+    /// <param name="path">Path to the folder that contains files to be loaded</param>
     void AddFromFolder(string path);
 
-    //!!! WARNING FOR ALL MEMORY RELATED FUNCTIONS !!!
-    //THEY SHOULD ONLY BE CALLED AFTER THE GAME HAS LAUNCHED. TRYING TO USE THEM BEFORE THE GAME HAS LAUNCHED WILL RESULT IN A CRASH.
+    /// <summary>
+    /// Allocates a piece of memory
+    /// </summary>
+    /// <param name="count">Number of bytes to allocate</param>
+    /// <param name="alignment">Alignment of the allocation</param>
+    /// <remarks>
+    /// Should only be used once the game has finished launching
+    /// </remarks>
+    /// <returns>Returns a pointer to the beginning of the new memory block</returns>
+    void* Malloc(nuint count, uint alignment = 0);
 
     /// <summary>
-    /// Allocates a piece of memory. <paramref name="Count" name="Alignment"/>. 
+    /// Similar to Malloc(), but may return a nullptr result if the allocation request cannot be satisfied
     /// </summary>
-    /// <param name="Count">Number of bytes to allocate.</param>
-    /// <param name="Alignment">Alignment of the allocation.</param>
-    void* Malloc(nuint Count, uint Alignment = 0);
+    /// <param name="count">Number of bytes to allocate.</param>
+    /// <param name="alignment">Alignment of the allocation.</param>
+    /// <remarks>
+    /// Should only be used once the game has finished launching.
+    /// </remarks>
+    /// <returns>Returns a pointer to the beginning of the new memory block. If the allocation fails, returns a nullptr</returns>
+    void* TryMalloc(nuint count, uint alignment = 0);
 
     /// <summary>
-    /// Allocates a piece of memory. <paramref name="Count" name="Alignment"/>. 
+    /// Resizes a previously allocated block of memory, preserving its contents
     /// </summary>
-    /// <param name="Count">Number of bytes to allocate.</param>
-    /// <param name="Alignment">Alignment of the allocation.</param>
-    void* TryMalloc(nuint Count, uint Alignment = 0);
+    /// <param name="original">Pointer to the original memory.</param>
+    /// <param name="count">Number of bytes to allocate.</param>
+    /// <param name="alignment">Alignment of the allocation.</param>
+    /// <remarks>
+    /// Should only be used once the game has finished launching.
+    /// </remarks>
+    /// <returns>Returns a pointer to the beginning of the new memory block</returns>
+    void* Realloc(void* original, nuint count, uint alignment = 0);
 
     /// <summary>
-    /// Reallocates a piece of memory. <paramref name="Count" name="Alignment" name="Original"/>. 
+    /// Similar to Realloc(), but may return a nullptr if the allocation request cannot be satisfied
     /// </summary>
-    /// <param name="Original">Pointer to the original memory.</param>
-    /// <param name="Count">Number of bytes to allocate.</param>
-    /// <param name="Alignment">Alignment of the allocation.</param>
-    void* Realloc(void* Original, nuint Count, uint Alignment = 0);
+    /// <param name="original">Pointer to the original memory.</param>
+    /// <param name="count">Number of bytes to allocate.</param>
+    /// <param name="alignment">Alignment of the allocation.</param>
+    /// <remarks>
+    /// Should only be used once the game has finished launching.
+    /// </remarks>
+    /// <returns>Returns a pointer to the beginning of the new memory block. If the allocation fails, returns a nullptr</returns>
+    void* TryRealloc(void* original, nuint count, uint alignment = 0);
 
     /// <summary>
-    /// Reallocates a piece of memory. <paramref name="Count" name="Alignment" name="Original"/>. 
+    /// Deallocates a piece of memory
     /// </summary>
-    /// <param name="Original">Pointer to the original memory.</param>
-    /// <param name="Count">Number of bytes to allocate.</param>
-    /// <param name="Alignment">Alignment of the allocation.</param>
-    void* TryRealloc(void* Original, nuint Count, uint Alignment = 0);
+    /// <param name="original">Pointer to the original memory.</param>
+    /// <remarks>
+    /// Should only be used once the game has finished launching.
+    /// </remarks>
+    void Free(void* original);
 
-    /// <summary>
-    /// Frees a piece of memory. <paramref name="Original"/>. 
+    ///<summary>
+    ///If possible, determines the size of the memory allocated at the given address
     /// </summary>
-    /// <param name="Original">Pointer to the original memory.</param>
-    void Free(void* Original);
-
-    nuint QuantizeSize(nuint Count, uint Alignment);
-
-    bool GetAllocationSize(void* Original, nuint* SizeOut);
-
-    void Trim(bool bTrimThreadCaches);
+    /// <param name="original">Pointer to memory we are checking the size of</param>
+    /// <param name="sizeOut">If possible, this value is set to the size of the passed in pointer</param>
+    /// <remarks>
+    /// Should only be used once the game has finished launching.
+    /// </remarks>
+    /// <returns>Returns true if it succeeds in determining the size of the memory allocated at the given address</returns>
+    bool GetAllocationSize(void* original, nuint* sizeOut);
 }
