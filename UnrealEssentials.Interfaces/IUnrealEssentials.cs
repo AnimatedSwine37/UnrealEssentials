@@ -2,6 +2,14 @@
 public unsafe interface IUnrealEssentials
 {
     /// <summary>
+    /// Adds files from the folder at <paramref name="path"/> and bind it to a custom game path using <paramref name="gamePath"/> 
+    /// This folder is treated like it was the UnrealEssentials folder inside of a mod
+    /// </summary>
+    /// <param name="path">Path to the folder that contains files to be loaded</param>
+    /// <param name="gamePath">The folder in the game's files to which the contents of the folder added by this api will be added to.</param>
+    void AddFolderWithCustomPath(string path, string gamePath);
+
+    /// <summary>
     /// Adds files from the folder at <paramref name="path"/> 
     /// This folder is treated like it was the UnrealEssentials folder inside of a mod
     /// </summary>

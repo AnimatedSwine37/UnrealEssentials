@@ -149,7 +149,7 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         _modLoader.ModLoading += ModLoading;
 
         // Expose API
-        _api = new Api(AddFolder);
+        _api = new Api(AddFolder, AddFolderWithCustomPath);
         _modLoader.AddOrReplaceController(context.Owner, _api);
     }
 
@@ -307,6 +307,17 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         AddFolder(modsPath);
     }
 
+    private void AddFolderWithCustomPath(string folder, string gamepaths)
+    {
+        // Add logic for handling the folder with the custom path
+        _pakFolders.Add(folder);
+        AddRedirections(folder, gamepaths);
+        Log($"Loading files from {folder} with custom paths");
+
+        if (_hasUtocs)
+            _utocEmulator.AddFromFolder(folder);
+    }
+
     private void AddFolder(string folder)
     {
         _pakFolders.Add(folder);
@@ -318,11 +329,11 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
             _utocEmulator.AddFromFolder(folder);
     }
 
-    private void AddRedirections(string modsPath)
+    private void AddRedirections(string modsPath, /*Dictionary<string, string>? gamepatharg=null*/ string? gamepatharg=null)
     {
         foreach (var file in Directory.EnumerateFiles(modsPath, "*", SearchOption.AllDirectories))
         {
-            var gamePath = Path.Combine(@"..\..\..", Path.GetRelativePath(modsPath, file)); // recreate what the game would try to load
+            var gamePath = (gamepatharg == null) ? Path.Combine(@"..\..\..", Path.GetRelativePath(modsPath, file)) : Path.Combine(@"..\..\..", gamepatharg, Path.GetRelativePath(modsPath, file)); // recreate what the game would try to load
             _redirections[gamePath] = file;
             _redirections[gamePath.Replace('\\', '/')] = file; // UE could try to load it using either separator
         }
