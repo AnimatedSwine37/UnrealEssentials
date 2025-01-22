@@ -18,15 +18,20 @@ public unsafe class Api : IUnrealEssentials
 
     private Action<string> _addFolder;
 
+    private Action<string, string?> _addFile;
+
     private Action<string, string> _addFolderWithCustomPath;
 
-    internal Api(Action<string> addFolder, Action<string, string> addFolderWithCustomPath)
+    internal Api(Action<string> addFolder, Action<string, string> addFolderWithCustomPath, Action<string, string> addFile)
     {
         _addFolder = addFolder;
         _addFolderWithCustomPath = addFolderWithCustomPath;
+        _addFile = addFile;
     }
 
     public void AddFromFolder(string path) => _addFolder(path);
 
     public void AddFolderWithCustomPath(string path, string gamePath) => _addFolderWithCustomPath(path, gamePath);
+
+    public void AddFromFile(string path, string? gamePath) => _addFile(path, gamePath);
 }

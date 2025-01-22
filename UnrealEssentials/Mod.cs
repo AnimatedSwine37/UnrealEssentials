@@ -149,7 +149,7 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
         _modLoader.ModLoading += ModLoading;
 
         // Expose API
-        _api = new Api(AddFolder, AddFolderWithCustomPath);
+        _api = new Api(AddFolder, AddFolderWithCustomPath, AddFileWithCustomPath);
         _modLoader.AddOrReplaceController(context.Owner, _api);
     }
 
@@ -305,6 +305,17 @@ public unsafe class Mod : ModBase, IExports // <= Do not Remove.
             return;
 
         AddFolder(modsPath);
+    }
+
+    private void AddFileWithCustomPath(string file, string gamepaths)
+    {
+        // Add logic for handling the folder with the custom path
+        _pakFolders.Add(Path.GetDirectoryName(file));
+        AddRedirections(Path.GetDirectoryName(file), gamepaths);
+        Log($"Loading {file} with custom paths");
+
+        if (_hasUtocs)
+            _utocEmulator.AddFromFolder(Path.GetDirectoryName(file));
     }
 
     private void AddFolderWithCustomPath(string folder, string gamepaths)
