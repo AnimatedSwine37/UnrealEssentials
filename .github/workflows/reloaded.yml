@@ -151,15 +151,23 @@ jobs:
         
     - name: Push to NuGet (on Tag)
       env: 
-        NUGET_KEY: ${{ secrets.RELOADED_NUGET_KEY }}
+        UE_NUGET_KEY: ${{ secrets.RELOADED_UE_NUGET_KEY }}
+        UTOC_NUGET_KEY: ${{ secrets.RELOADED_UTOC_NUGET_KEY }}
         INTERFACE_NUGET_KEY: ${{ secrets.INTERFACE_NUGET_KEY }}
       if: env.IS_RELEASE == 'true'
       run: |
-        $items = Get-ChildItem -Path "$env:PUBLISH_COMMON_PATH" -Include "*.nupkg" -Recurse
+        $items = Get-ChildItem -Path "$env:PUBLISH_NUGET_UE_PATH" -Include "*.nupkg" -Recurse
         Foreach ($item in $items)
         {
             Write-Host "Pushing $item"
-            dotnet nuget push "$item" -k "$env:NUGET_KEY" -s "$env:RELOAD_NUGET_URL" --skip-duplicate
+            dotnet nuget push "$item" -k "$env:UE_NUGET_KEY" -s "$env:RELOAD_NUGET_URL" --skip-duplicate
+        }
+
+        $items = Get-ChildItem -Path "$env:PUBLISH_NUGET_UTOC_PATH" -Include "*.nupkg" -Recurse
+        Foreach ($item in $items)
+        {
+            Write-Host "Pushing $item"
+            dotnet nuget push "$item" -k "$env:UTOC_NUGET_KEY" -s "$env:RELOAD_NUGET_URL" --skip-duplicate
         }
 
         $items = Get-ChildItem -Path "$env:PUBLISH_INTERFACE_PATH" -Include "*.nupkg" -Recurse
