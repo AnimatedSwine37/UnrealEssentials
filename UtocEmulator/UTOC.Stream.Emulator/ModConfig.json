@@ -2,7 +2,7 @@
   "ModId": "UTOC.Stream.Emulator",
   "ModName": "IO Store Emulator",
   "ModAuthor": "Rirurin",
-  "ModVersion": "1.1.2",
+  "ModVersion": "1.1.3",
   "ModDescription": "Simulates Unreal Engine IO Store files (.utoc \u002B .ucas). Allows mods to add or replace existing files using files on disk",
   "ModDll": "UTOC.Stream.Emulator.dll",
   "ModIcon": "Preview.png",

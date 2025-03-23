@@ -1,4 +1,8 @@
 # UTOC Emulator Changelog
+## 1.1.3
+- Fixed IO Store files not being emulated if the file was created/opened multiple times
+- Removed the file size hack as the related bug has now been fixed in File Emulation Framework (see [#15](https://github.com/Sewer56/FileEmulationFramework/issues/15))
+
 ## 1.1.2
 - Fixed a crash when a game that uses IO Store has no mods with emulated utoc files. i.e. if only full utoc files are included using Unreal Essentials.
 
