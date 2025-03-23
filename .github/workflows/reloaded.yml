@@ -154,15 +154,15 @@ jobs:
         NUGET_KEY: ${{ secrets.RELOADED_NUGET_KEY }}
         INTERFACE_NUGET_KEY: ${{ secrets.INTERFACE_NUGET_KEY }}
       if: env.IS_RELEASE == 'true'
-      run: |        
-        $items = Get-ChildItem -Path "$env:PUBLISH_COMMON_PATH/*.nupkg"
+      run: |
+        $items = Get-ChildItem -Path "$env:PUBLISH_COMMON_PATH" -Include "*.nupkg" -Recurse
         Foreach ($item in $items)
         {
             Write-Host "Pushing $item"
             dotnet nuget push "$item" -k "$env:NUGET_KEY" -s "$env:RELOAD_NUGET_URL" --skip-duplicate
         }
 
-        $items = Get-ChildItem -Path "$env:PUBLISH_INTERFACE_PATH/*.nupkg"
+        $items = Get-ChildItem -Path "$env:PUBLISH_INTERFACE_PATH" -Include "*.nupkg" -Recurse
         Foreach ($item in $items)
         {
             Write-Host "Pushing $item"
