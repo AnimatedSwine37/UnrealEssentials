@@ -24,14 +24,14 @@
     },
     "GitHubDependencies": {
       "IdToConfigMap": {
-        "Reloaded.Memory.SigScan.ReloadedII": {
+        "reloaded.universal.fileemulationframework": {
           "Config": {
-            "UserName": "Reloaded-Project",
-            "RepositoryName": "Reloaded.Memory.SigScan",
+            "UserName": "Sewer56",
+            "RepositoryName": "FileEmulationFramework",
             "UseReleaseTag": false,
             "AssetFileName": "Mod.zip"
           },
-          "ReleaseMetadataName": "Reloaded.Memory.SigScan.ReloadedII.ReleaseMetadata.json"
+          "ReleaseMetadataName": "Reloaded.Universal.FileEmulationFramework.ReleaseMetadata.json"
         },
         "reloaded.sharedlib.hooks": {
           "Config": {
@@ -41,15 +41,6 @@
             "AssetFileName": "reloaded.sharedlib.hooks.zip"
           },
           "ReleaseMetadataName": "Sewer56.Update.ReleaseMetadata.json"
-        },
-        "reloaded.universal.fileemulationframework": {
-          "Config": {
-            "UserName": "Sewer56",
-            "RepositoryName": "FileEmulationFramework",
-            "UseReleaseTag": false,
-            "AssetFileName": "Mod.zip"
-          },
-          "ReleaseMetadataName": "Reloaded.Universal.FileEmulationFramework.ReleaseMetadata.json"
         }
       }
     },
@@ -62,8 +53,6 @@
   },
   "IsUniversalMod": true,
   "ModDependencies": [
-    "Reloaded.Memory.SigScan.ReloadedII",
-    "reloaded.sharedlib.hooks",
     "reloaded.universal.fileemulationframework"
   ],
   "OptionalDependencies": [],

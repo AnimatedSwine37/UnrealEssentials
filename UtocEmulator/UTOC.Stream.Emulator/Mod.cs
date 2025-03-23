@@ -1,15 +1,11 @@
 ﻿using FileEmulationFramework.Interfaces;
 using FileEmulationFramework.Lib.Utilities;
-using Reloaded.Hooks.Definitions;
-using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using Reloaded.Mod.Interfaces.Internal;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 using System.Diagnostics;
 using UTOC.Stream.Emulator.Configuration;
 using UTOC.Stream.Emulator.Template;
-using System.Runtime.InteropServices;
-using Reloaded.Memory.Sigscan.Definitions.Structs;
 using UTOC.Stream.Emulator.Interfaces;
 
 namespace UTOC.Stream.Emulator
@@ -53,11 +49,7 @@ namespace UTOC.Stream.Emulator
         // File Emulation Framework Globals
         private Logger _log;
         private UtocEmulator _emu;
-
-        private long BaseAddress;
-        private IHook<OpenContainerDelegate> _openContainerHook;
-        private IHook<FFileIoStore_ReadBlocks> _readBlocksHook;
-
+        
         private IUtocEmulator _api;
 
         public Mod(ModContext context) 
@@ -87,46 +79,11 @@ namespace UTOC.Stream.Emulator
             _modLoader.OnModLoaderInitialized += OnLoaderInit;
 
             var ctrl_weak = _modLoader.GetController<IEmulationFramework>().TryGetTarget(out var framework);
-            _modLoader.GetController<IStartupScanner>().TryGetTarget(out var scanFactory);
             _emu.TocVersion = tocType; // Set Toc Version
             _emu.PakVersion = pakType; // Set Pak Version
             framework!.Register(_emu);
-            BaseAddress = Process.GetCurrentProcess().MainModule.BaseAddress;
-            ContainerFileSizeOverride(scanFactory, fileIoStoreSig, readBlockSig);
-
         }
-
-
-        private void ContainerFileSizeOverride(IStartupScanner scanFactory, string fileIoStoreSig, string readBlockSig)
-        {
-            if (fileIoStoreSig != null)
-            {
-                scanFactory.AddMainModuleScan(fileIoStoreSig, result =>
-                {
-                    if (!result.Found)
-                    {
-                        _log.Info($"[UtocEmulator] Unable to find Open Container, stuff won't work :(");
-                        return;
-                    }
-                    var openContainerAddress = BaseAddress + result.Offset;
-                    _log.Info($"[UtocEmulator] Found OpenContainer at 0x{openContainerAddress:X}");
-                    _openContainerHook = _hooks.CreateHook<OpenContainerDelegate>(OpenContainer, openContainerAddress).Activate();
-                });
-            } else if (readBlockSig != null)
-            {
-                scanFactory.AddMainModuleScan(readBlockSig, result2 =>
-                {
-                    if (!result2.Found)
-                    {
-                        _log.Info($"[UtocEmulator] Unable to find Read Blocks, stuff won't work :(");
-                        return;
-                    }
-                    var readBlocksAddress = BaseAddress + result2.Offset;
-                    _log.Info($"[UtocEmulator] Found OpenContainer at 0x{readBlocksAddress:X}");
-                    unsafe { _readBlocksHook = _hooks.CreateHook<FFileIoStore_ReadBlocks>(ReadBlocks, readBlocksAddress).Activate(); }
-                });
-            }
-        }
+        
 
         private void OnLoaderInit()
         {
@@ -135,31 +92,7 @@ namespace UTOC.Stream.Emulator
             _emu.OnLoaderInit();
         }
         private void OnModLoading(IModV1 mod, IModConfigV1 conf) => _emu.OnModLoading(_modLoader.GetDirectoryForModId(conf.ModId));
-
-        public bool OpenContainer(nuint thisPtr, nuint containerFilePath, nuint containerFileHandle, nuint containerFileSize)
-        { // This is a temporary measure due to a bug in FileEmulationFramework
-            var returnValue = _openContainerHook.OriginalFunction(thisPtr, containerFilePath, containerFileHandle, containerFileSize);
-            unsafe
-            {
-                if (Marshal.PtrToStringUni((nint)containerFilePath).Contains($"{Constants.UnrealEssentialsName}{Constants.UcasExtension}"))
-                {
-                    *(long*)containerFileSize = _emu.CasStream.Length;
-                }
-            }
-            return returnValue;
-        }
-
-        public unsafe void ReadBlocks(nuint thisPtr, FFileIoStoreResolvedRequest* ResolvedRequest)
-        { // This is a temporary measure due to a bug in FileEmulationFramework
-            var currentContainer = ResolvedRequest->ContainerFile->Partitions;
-            var name = Marshal.PtrToStringUni((nint)ResolvedRequest->ContainerFile->FilePath);
-            if (_emu.CasStream != null && name.Contains(Constants.UnrealEssentialsName))
-            {
-                currentContainer->FileSize = _emu.CasStream.Length;
-            }
-            _readBlocksHook.OriginalFunction(thisPtr, ResolvedRequest);
-        }
-
+        
         #region Standard Overrides
         public override void ConfigurationUpdated(Config configuration)
         {
@@ -178,43 +111,4 @@ namespace UTOC.Stream.Emulator
 
         public Type[] GetTypes() => new[] { typeof(IUtocEmulator) };
     }
-
-    public delegate bool OpenContainerDelegate(nuint thisPtr, nuint containerFilePath, nuint containerFileHandle, nuint containerFileSize);
-    public unsafe delegate void FFileIoStore_ReadBlocks(nuint thisPtr, FFileIoStoreResolvedRequest* ResolvedRequest);
-
-    [StructLayout(LayoutKind.Explicit, Size = 0x10)]
-    public unsafe struct FFileIoStoreResolvedRequest
-    {
-        [FieldOffset(0x8)] public FFileIoStoreContainerFile* ContainerFile;
-        [FieldOffset(0x10)] public FFileIoStoreReadRequestLink* ReadRequestsHead;
-    }
-
-    [StructLayout(LayoutKind.Explicit, Size = 0x88)]
-    public unsafe struct FFileIoStoreContainerFile
-    {
-        [FieldOffset(0x30)] public nuint FilePath;
-        [FieldOffset(0x88)] public FFileIoStoreContainerFilePartition* Partitions;
-    }
-
-    [StructLayout(LayoutKind.Explicit, Size = 0x10)]
-    public unsafe struct FFileIoStoreContainerFilePartition
-    {
-        [FieldOffset(0x8)] public long FileSize;
-    }
-
-    [StructLayout(LayoutKind.Explicit, Size = 0x10)]
-    public unsafe struct FFileIoStoreReadRequestLink
-    {
-        [FieldOffset(0x0)] public FFileIoStoreReadRequestLink* Next;
-        [FieldOffset(0x8)] public FFileIoStoreReadRequest* ReadRequest;
-    }
-
-    [StructLayout(LayoutKind.Explicit, Size = 0x20)]
-    public unsafe struct FFileIoStoreReadRequest 
-    {
-        [FieldOffset(0x8)] public long FileHandle;
-        [FieldOffset(0x8)] public long FileOffset;
-        [FieldOffset(0x18)] public long FileSize;
-    }
-
 }
