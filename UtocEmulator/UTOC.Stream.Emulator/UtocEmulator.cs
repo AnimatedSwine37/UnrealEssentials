@@ -66,7 +66,7 @@ namespace UTOC.Stream.Emulator
             _pathToStream[path] = null; // Avoid recursion into the same file
             if (!path.Contains(ModTargetFilesDirectory) || TocStream == null) return false;
             stream = TocStream;
-            _pathToStream.TryAdd(path, stream);
+            _pathToStream[path] = stream;
             emulated = new EmulatedFile<Strim>(stream);
             _logger.Info($"[UtocEmulator] Created Emulated Table of Contents with Path {path}");
             if (DumpFiles)
@@ -108,7 +108,7 @@ namespace UTOC.Stream.Emulator
             _pathToStream[path] = null;
             if (!path.Contains(ModTargetFilesDirectory) || CasStream == null) return false;
             stream = CasStream;
-            _pathToStream.TryAdd(path, stream);
+            _pathToStream[path] = stream;
             emulated = new EmulatedFile<Strim>(stream);
             _logger.Info($"[UtocEmulator] Created Emulated Container with Path {path}");
             if (DumpFiles)
@@ -134,7 +134,7 @@ namespace UTOC.Stream.Emulator
             _pathToStream[path] = null;
             if (!path.Contains(ModTargetFilesDirectory)) return false;
             stream = GetDummyPak();
-            _pathToStream.TryAdd(path, stream);
+            _pathToStream[path] = stream;
             emulated = new EmulatedFile<Strim>(stream);
             _logger.Info($"[UtocEmulator] Created Emulated IO Store PAK with Path {path}");
             if (DumpFiles)
