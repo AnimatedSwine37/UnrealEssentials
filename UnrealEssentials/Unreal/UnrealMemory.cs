@@ -18,21 +18,19 @@ public unsafe class UnrealMemory : IUnrealMemory
     private QuantizeSizeDelegate? _quantizeSize;
     private GetAllocationSizeDelegate? _getAllocationSize;
     private TrimDelegate? _trim;
+    
+    private static MultiSignature GMallocSignature;
 
     private readonly bool _allowExecuteCommands;
     private readonly ObjectCommandExecutorType _commandExecutorType;
 
-    internal UnrealMemory(string gMallocSig, IReloadedHooks hooks, bool allowExecuteCommands, 
+    internal UnrealMemory(Signatures sigs, IReloadedHooks hooks, bool allowExecuteCommands, 
         ObjectCommandExecutorType commandExecutorType)
     {
         _hooks = hooks;
         _allowExecuteCommands = allowExecuteCommands;
         _commandExecutorType = commandExecutorType;
-        SigScan(gMallocSig, "GMallocPtr", address =>
-        {
-            _gMalloc = (FMalloc**)GetGlobalAddress(address + 3);
-            LogDebug($"Found GMalloc at 0x{(nuint)_gMalloc:X}");
-        });
+        GMallocSignature = new("GMalloc", sigs.GMalloc, address => _gMalloc = (FMalloc**)address);
     }
 
     private void SetupWrappers()

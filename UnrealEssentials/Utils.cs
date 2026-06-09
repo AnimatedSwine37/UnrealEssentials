@@ -2,31 +2,44 @@
 using Reloaded.Mod.Interfaces;
 using System.Diagnostics;
 using System.Text;
+using System.Xml.XPath;
+using Reloaded.Hooks.Definitions;
+using riri.yamlscans;
 using UnrealEssentials.Configuration;
 using static UnrealEssentials.Unreal.Native;
+using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 
 namespace UnrealEssentials;
-internal unsafe class Utils
+internal static unsafe class Utils
 {
     private static ILogger _logger;
     private static Config _config;
-    private static IStartupScanner _startupScanner;
+    internal static IStartupScanner _startupScanner;
+    internal static IReloadedHooks _hooks;
     internal static nint BaseAddress { get; private set; }
+    internal static TransformProviderAMD64 TransformProvider;
 
-    internal static bool Initialise(ILogger logger, Config config, IModLoader modLoader)
+    internal static bool Initialise(ILogger logger, Config config, IModLoader modLoader, IReloadedHooks? hooks)
     {
         _logger = logger;
         _config = config;
         using var thisProcess = Process.GetCurrentProcess();
         BaseAddress = thisProcess.MainModule!.BaseAddress;
+        TransformProvider = new(BaseAddress);
 
         var startupScannerController = modLoader.GetController<IStartupScanner>();
         if (startupScannerController == null || !startupScannerController.TryGetTarget(out _startupScanner))
         {
-            LogError($"Unable to get controller for Reloaded SigScan Library, stuff won't work :(");
+            LogError("Unable to get controller for Reloaded SigScan Library, stuff won't work :(");
             return false;
         }
 
+        if (hooks == null)
+        {
+            LogError("Unable to get controller for Reloaded Hooks Library, stuff won't work :(");
+            return false;
+        }
+        _hooks = hooks;
         return true;
     }
 
@@ -116,5 +129,76 @@ internal unsafe class Utils
     internal static unsafe nuint GetGlobalAddress(nint ptrAddress)
     {
         return (nuint)((*(int*)ptrAddress) + ptrAddress + 4);
+    }
+}
+
+internal class MultiSignature
+{
+    private readonly object Lock = new();
+    private string Name;
+    private List<Candidate> Candidates;
+    private Action<nint> Action;
+    private int ScansCompleted;
+    private nint Address;
+    
+    public MultiSignature(string name, List<Candidate> candidates, Action<nint> action)
+    {
+        Candidates = candidates;
+        Name = name;
+        Action = action;
+        
+        foreach (var Candidate in Candidates)
+        {
+            Utils._startupScanner.AddMainModuleScan(Candidate.Signature, result =>
+            {
+                lock (Lock) { ScansCompleted++; }
+                if (!result.Found)
+                {
+                    if (Address != nint.Zero)
+                    {
+                        Utils.LogDebug($"Location {Name} was already found in a candidate pattern");
+                    }
+                    else if (ScansCompleted == Candidates.Count)
+                    {
+                        Utils.LogError($"Couldn't find location for {Name}, stuff will break :(");
+                    }
+                    else
+                    {
+                        Utils.LogDebug($"Couldn't find location for {Name} using pattern {Candidate}, trying with another pattern...");
+                    }
+                    return;
+                }
+                var call = false;
+                lock (Lock)
+                {
+                    if (Address == nint.Zero)
+                    {
+                        Address = Candidate.Transformer.Transform(Utils.TransformProvider, result.Offset);
+                        call = true;
+                    }
+                }
+                if (call)
+                {
+                    Utils.Log($"Found {Name} at 0x{Address:X}");
+                    Action(Address);
+                }
+                else
+                {
+                    Utils.LogDebug($"Location {Name} was already found in a candidate pattern");
+                }
+            });
+        }
+    }
+}
+
+internal class MultiHook<TFunction>
+{
+    public IHook<TFunction>? Hook { get; private set; }
+    private MultiSignature Signature;
+    
+    public MultiHook(string name, List<Candidate> candidates, TFunction function)
+    {
+        Signature = new(name, candidates, ptr => 
+            Hook = Utils._hooks.CreateHook(function, ptr).Activate());
     }
 }

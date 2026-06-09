@@ -11,6 +11,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UTOC.Stream.Emulator.Interf
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnrealEssentials.Interfaces", "UnrealEssentials.Interfaces\UnrealEssentials.Interfaces.csproj", "{F9969D2A-D540-4678-A3BC-E061312E0F87}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "riri.yamlscans", "..\riri.yamlscans\riri.yamlscans\riri.yamlscans.csproj", "{C33F6F29-7489-4B06-A0F6-4335C3BD5C89}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnrealEssentials.Tests", "UnrealEssentials.Tests\UnrealEssentials.Tests.csproj", "{9663D3C5-7533-4EDE-861B-6651BEF312BA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +37,14 @@ Global
 		{F9969D2A-D540-4678-A3BC-E061312E0F87}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F9969D2A-D540-4678-A3BC-E061312E0F87}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F9969D2A-D540-4678-A3BC-E061312E0F87}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C33F6F29-7489-4B06-A0F6-4335C3BD5C89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C33F6F29-7489-4B06-A0F6-4335C3BD5C89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C33F6F29-7489-4B06-A0F6-4335C3BD5C89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C33F6F29-7489-4B06-A0F6-4335C3BD5C89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9663D3C5-7533-4EDE-861B-6651BEF312BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9663D3C5-7533-4EDE-861B-6651BEF312BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9663D3C5-7533-4EDE-861B-6651BEF312BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9663D3C5-7533-4EDE-861B-6651BEF312BA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

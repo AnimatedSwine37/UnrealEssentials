@@ -70,7 +70,7 @@ namespace UTOC.Stream.Emulator
             _modLoader.AddOrReplaceController(context.Owner, _api);
         }
 
-        public void Initialise(TocType? tocType, PakType pakType, string fileIoStoreSig, string readBlockSig, Action<string> addPakFolder, Action<string> removePakFolder)
+        public void Initialise(TocType? tocType, PakType pakType, Action<string> addPakFolder, Action<string> removePakFolder)
         {
             _log.Info("Starting UTOC.Stream.Emulator");
             _emu = new UtocEmulator(

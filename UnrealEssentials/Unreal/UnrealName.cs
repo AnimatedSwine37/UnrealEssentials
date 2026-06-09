@@ -8,8 +8,10 @@ using static Utils;
 // From Unreal Toolkit
 // See https://github.com/RyoTune/UE.Toolkit/blob/main/UE.Toolkit.Core/Types/Unreal/UE5_4_4/FName.cs
 
-internal class UnrealName
+internal static class UnrealName
 {
+    private static MultiSignature GFNamePoolSignature;
+    
     [StructLayout(LayoutKind.Explicit, Size = 0x10)]
     public struct FNamePool
     {
@@ -18,7 +20,7 @@ internal class UnrealName
 
         public static unsafe void Initialize(IReloadedHooks _hooks, Signatures sigs)
         {
-            SigScan(sigs.GFNamePool, "GFNamePool", address => FName.GFNamePool = (FNamePool*)GetGlobalAddress(address + 3));
+            GFNamePoolSignature = new("GFNamePool", sigs.GFNamePool, address => FName.GFNamePool = (FNamePool*)address);
         }
     }
     

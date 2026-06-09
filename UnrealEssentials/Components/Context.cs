@@ -1,13 +1,9 @@
 ﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
-using Reloaded.Hooks.Definitions;
 using Reloaded.Memory.Sigscan.Definitions;
 using Reloaded.Mod.Interfaces;
-using UnrealEssentials.Configuration;
-using UnrealEssentials.SignatureList;
-using UnrealEssentials.SignatureList.Game;
 using UnrealEssentials.Types;
 using UnrealEssentials.Unreal;
 using UTOC.Stream.Emulator.Interfaces;
@@ -17,134 +13,18 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace UnrealEssentials.Components;
 using static Utils;
 
-internal class Context
+internal static class ContextBuilder
 {
-    internal unsafe Native.FPakSigningKeys* _signingKeys { get;}
-    internal string _modsPath { get; }
-    internal List<string> _pakFolders = new();
-    internal Dictionary<string, string> _redirections { get; } = new();
-    internal IUtocEmulator? _utocEmulator;
-    internal bool _hasUtocs { get; }
-    internal Signatures _signatures { get; }
-    
-    internal unsafe Context(Native.FPakSigningKeys* signingKeys, string modsPath, bool hasUtocs, Signatures signatures, IModLoader _modLoader)
+    public static unsafe Context? CreateContext(IModLoader _modLoader, IModConfig _modConfig)
     {
-        _signingKeys = signingKeys;
-        _modsPath = modsPath;
-        _hasUtocs = hasUtocs;
-        _signatures = signatures;
-       
-        // Initialize UTOC Emulator
-        _modLoader.GetController<IUtocEmulator>().TryGetTarget(out _utocEmulator);
-        _utocEmulator!.Initialise(
-            _signatures.TocVersion, _signatures.PakVersion,
-            _signatures.FileIoStoreOpenContainer, _signatures.ReadBlocks, 
-            AddPakFolder, RemovePakFolder
-            );
-    }
-
-    internal static unsafe bool TryCreateContext(IModLoader _modLoader, IModConfig _modConfig, out Context? context)
-    {
-        context = null;
-        // Setup mods path
-        var modPath = new DirectoryInfo(_modLoader.GetDirectoryForModId(_modConfig.ModId)).Parent!.FullName;
-        if (!TryGetSignatures(_modLoader, out var sigs)) return false;
-        context = new(Native.FPakSigningKeys.NewBlank(), modPath, DoesGameUseUtocs(sigs), sigs, _modLoader);
-        return true;
-    }
-
-    internal void AddFolder(string folder)
-    {
-        if (!Directory.Exists(folder))
-        {
-            LogError($"Folder {folder} does not exist, skipping.");
-            return;
-        }
-        _pakFolders.Add(folder);
-        AddRedirections(folder, null);
-        Log($"Loading files from {folder}");
-
-        // Prevent UTOC Emulator from wasting time creating UTOCs if the game doesn't use them
-        if (_hasUtocs)
-            _utocEmulator.AddFromFolder(folder);
-    }
-
-    internal void AddFolderWithVirtualMount(string folder, string virtualPath)
-    {
-        if (!Directory.Exists(folder))
-        {
-            LogError($"Folder {folder} does not exist, skipping.");
-            return;
-        }
-        _pakFolders.Add(folder);
-        AddRedirections(folder, virtualPath);
-        Log($"Loading files from {folder}, with emulated mountFilePath {virtualPath}");
-
-        // Prevent UTOC Emulator from wasting time creating UTOCs if the game doesn't use them
-        if (_hasUtocs)
-            _utocEmulator.AddFromFolderWithMount(folder, virtualPath);
-    }
-
-    internal void AddFileWithVirtualMount(string file, string virtualPath)
-    {
-        if(!File.Exists(file))
-        {
-            LogError($"File {file} does not exist, skipping.");
-            return;
-        }
-        _pakFolders.Add(file);
-        _redirections[virtualPath] = file;
-        Log($"Loading file at {file}, with emulated mountFilePath {virtualPath}");
-
-        // Prevent UTOC Emulator from wasting time creating UTOCs if the game doesn't use them
-        if (_hasUtocs)
-            _utocEmulator.AddFromFolderWithMount(file, virtualPath);
-    }
-
-    internal void AddRedirections(string modsPath, string? virtualPath)
-    {
-        foreach (var file in Directory.EnumerateFiles(modsPath, "*", SearchOption.AllDirectories))
-        {
-            string relativeFilePath = Path.GetRelativePath(modsPath, file);
-            string gamePath;
-
-            if (!string.IsNullOrWhiteSpace(virtualPath))
-            {
-                // Use virtual mount mountFilePath
-                gamePath = Path.Combine(@"..\..\..", virtualPath, relativeFilePath);
-            }
-            else
-            {
-                gamePath = Path.Combine(@"..\..\..", relativeFilePath);
-            }
-
-            string normalizedGamePath = gamePath.Replace('\\', '/');
-            _redirections[gamePath] = file;
-            _redirections[normalizedGamePath] = file;
-        }
+        var modFolder = _modLoader.GetDirectoryForModId(_modConfig.ModId);
+        var modPath = new DirectoryInfo(modFolder).Parent!.FullName;
+        var propFactory = new SignaturePropertyFactory(Path.Combine(modFolder, "Signatures"));
+        if (!TryGetProperties(_modLoader, propFactory, out var props)) return null;
+        return new(Native.FPakSigningKeys.NewBlank(), modPath, CheckIoStore(props), props, _modLoader);   
     }
     
-    private void AddPakFolder(string path)
-    {
-        _pakFolders.Add(path);
-        AddRedirections(path, null);
-        Log($"Loading PAK files from {path}");
-    }
-
-    private void RemovePakFolder(string path)
-    {
-        if (_pakFolders.Remove(path))
-        {
-            Log($"Removed pak folder {path}");
-        }
-    }
-    
-    internal bool TryFindLooseFile(string gameFilePath, out string? looseFile)
-    {
-        return _redirections.TryGetValue(gameFilePath, out looseFile);
-    }
-
-    private static bool TryGetSignatureFromFileDescription(Dictionary<string?, Signatures> VersionSigs, ProcessModule mainModule, out Signatures? sigs)
+    private static bool TryGetSignatureFromProductName(SignaturePropertyFactory factory, ProcessModule mainModule, out Properties? sigs)
     {
         // Dynamically load DLL needed for methods to get executable resource metadata from
         sigs = null;
@@ -194,7 +74,7 @@ internal class Context
                     return false;
                 }
 
-                for (int i = 0; i < translateSize / sizeof(LanguageCodePage); i++)
+                for (var i = 0; i < translateSize / sizeof(LanguageCodePage); i++)
                 {
                     // Check FileDescription entry for StringFileInfo
                     var translateEntry = (translate + i);
@@ -202,12 +82,12 @@ internal class Context
                     uint fileDescBytes = 0;
                     // VerQueryValue for strings includes null terminator in length
                     if (!verQueryValueA(pInfoBuffer,
-                            $"\\StringFileInfo\\{translateEntry->wLanguage:x04}{translateEntry->wCodePage:x04}\\FileDescription", 
+                            $"\\StringFileInfo\\{translateEntry->wLanguage:x04}{translateEntry->wCodePage:x04}\\ProductName", 
                             (nint*)(&fileDescription), &fileDescBytes))
                     {
                         return false;
                     }
-                    if (VersionSigs.TryGetValue(Marshal.PtrToStringAnsi((nint)fileDescription, (int)fileDescBytes - 1), 
+                    if (factory.GameRegistry.ProductName.TryGetValue(Marshal.PtrToStringAnsi((nint)fileDescription, (int)fileDescBytes - 1), 
                             out var sigsMaybe))
                     {
                         sigs = sigsMaybe;
@@ -218,13 +98,44 @@ internal class Context
         }
         return false;
     }
+
+    private static string[] BranchNames =
+    [
+        "2B 00 2B 00 55 00 45 00 34 00 2B 00", // ++UE4+
+        "2B 00 2B 00 75 00 65 00 34 00 2B 00", // ++ue4+
+        "2B 00 2B 00 55 00 45 00 35 00 2B 00", // ++UE5+
+        "2B 00 2B 00 75 00 65 00 35 00 2B 00", // ++ue5+
+    ];
     
-    private static bool TryGetSignatures(IModLoader _modLoader, out Signatures sigs)
+    private static bool TryGetProperties(IModLoader _modLoader, SignaturePropertyFactory factory, out Properties props)
     {
         var CurrentProcess = Process.GetCurrentProcess();
         var mainModule = CurrentProcess.MainModule;
-        var fileName = Path.GetFileName(mainModule!.FileName);
-
+        var fileName = Path.GetFileNameWithoutExtension(mainModule!.FileName);
+        props = new();
+        // Try and find based on file name
+        if (factory.GameRegistry.ExecutableName.TryGetValue(fileName, out props)) return true;
+        // Try and find based on the executable's file description
+        if (TryGetSignatureFromProductName(factory, mainModule!, out props)) return true;
+        // Try and find based on branch name
+        _modLoader.GetController<IScannerFactory>().TryGetTarget(out var scannerFactory);
+        var scanner = scannerFactory!.CreateScanner(CurrentProcess, mainModule);
+        var results = scanner.FindPatterns(BranchNames).Where(x => x.Found).ToList();
+        if (results.Count == 0)
+        {
+            LogError($"Unable to find Unreal Engine version number, Unreal Essentials will not work!\n" +
+                     $"If this game does not use Unreal Engine please disable Unreal Essentials.\n" +
+                     $"If you are sure this is an Unreal Engine game then please report this at github.com/AnimatedSwine37/UnrealEssentials " +
+                     $"so support can be added.");
+            return false;
+        }
+        var branch = Marshal.PtrToStringUni(results[0].Offset + BaseAddress)!;
+        Log($"Unreal Engine branch is {branch}");
+        if (factory.EngineVersions.TryGetValue(branch, out props)) return true;
+        LogError($"Unable to find signatures for Unreal Engine branch {branch}, Unreal Essentials will not work!\n" +
+                 "Please report this at github.com/AnimatedSwine37/UnrealEssentials.");
+        return false;
+        /*
         var VersionSigs = Assembly.GetExecutingAssembly().GetTypes().Where(x =>
             x.CustomAttributes.Any(a => a.AttributeType == typeof(SignatureAttribute)))
             .Select(x => (
@@ -244,17 +155,12 @@ internal class Context
             sigs = sigsMaybe.Value;
             return true;
         }
-        
+
         _modLoader.GetController<IScannerFactory>().TryGetTarget(out var scannerFactory);
         var scanner = scannerFactory!.CreateScanner(CurrentProcess, mainModule);
 
         // Try and find based on branch name
-        var results = scanner.FindPatterns(new List<string>() {
-            "2B 00 2B 00 55 00 45 00 34 00 2B 00", // ++UE4+
-            "2B 00 2B 00 75 00 65 00 34 00 2B 00", // ++ue4+
-            "2B 00 2B 00 55 00 45 00 35 00 2B 00", // ++UE5+
-            "2B 00 2B 00 75 00 65 00 35 00 2B 00", // ++ue5+
-        }).Where(x => x.Found).ToList();
+        var results = scanner.FindPatterns(BranchNames).Where(x => x.Found).ToList();
         if (results.Count == 0)
         {
             LogError($"Unable to find Unreal Engine version number, Unreal Essentials will not work!\n" +
@@ -273,13 +179,15 @@ internal class Context
         }
 
         return true;
+        */
     }
     
-    private static bool DoesGameUseUtocs(Signatures sigs)
+    private static bool CheckIoStore(Properties props)
     {
-        if (sigs.TocVersion == null)
+        if (props.TocVersion == null)
         {
             Log("Game does not use UTOCs as TocVersion was null");
+            return false;
         }
 
         // Look for any utoc files in the game's folder
@@ -290,6 +198,120 @@ internal class Context
         }
 
         return true;
+    }
+}
+
+internal class Context
+{
+    internal unsafe Native.FPakSigningKeys* SigningKeys { get;}
+    internal string ModsPath { get; }
+    internal List<string> PakFolders = [];
+    internal Dictionary<string, string> Redirections { get; } = [];
+    internal IUtocEmulator? UtocEmulator;
+    internal bool HasUtocs { get; }
+    internal Properties Properties { get; }
+    
+    internal unsafe Context(Native.FPakSigningKeys* signingKeys, string modsPath, bool hasUtocs, Properties properties, IModLoader _modLoader)
+    {
+        SigningKeys = signingKeys;
+        ModsPath = modsPath;
+        HasUtocs = hasUtocs;
+        Properties = properties;
+       
+        // Initialize UTOC Emulator
+        _modLoader.GetController<IUtocEmulator>().TryGetTarget(out UtocEmulator);
+        UtocEmulator!.Initialise(Properties.TocVersion, Properties.PakVersion, AddPakFolder, RemovePakFolder);
+    }
+
+    internal void AddFolder(string folder)
+    {
+        if (!Directory.Exists(folder))
+        {
+            LogError($"Folder {folder} does not exist, skipping.");
+            return;
+        }
+        PakFolders.Add(folder);
+        AddRedirections(folder, null);
+        Log($"Loading files from {folder}");
+
+        // Prevent UTOC Emulator from wasting time creating UTOCs if the game doesn't use them
+        if (HasUtocs)
+            UtocEmulator.AddFromFolder(folder);
+    }
+
+    internal void AddFolderWithVirtualMount(string folder, string virtualPath)
+    {
+        if (!Directory.Exists(folder))
+        {
+            LogError($"Folder {folder} does not exist, skipping.");
+            return;
+        }
+        PakFolders.Add(folder);
+        AddRedirections(folder, virtualPath);
+        Log($"Loading files from {folder}, with emulated mountFilePath {virtualPath}");
+
+        // Prevent UTOC Emulator from wasting time creating UTOCs if the game doesn't use them
+        if (HasUtocs)
+            UtocEmulator.AddFromFolderWithMount(folder, virtualPath);
+    }
+
+    internal void AddFileWithVirtualMount(string file, string virtualPath)
+    {
+        if(!File.Exists(file))
+        {
+            LogError($"File {file} does not exist, skipping.");
+            return;
+        }
+        PakFolders.Add(file);
+        Redirections[virtualPath] = file;
+        Log($"Loading file at {file}, with emulated mountFilePath {virtualPath}");
+
+        // Prevent UTOC Emulator from wasting time creating UTOCs if the game doesn't use them
+        if (HasUtocs)
+            UtocEmulator.AddFromFolderWithMount(file, virtualPath);
+    }
+
+    internal void AddRedirections(string modsPath, string? virtualPath)
+    {
+        foreach (var file in Directory.EnumerateFiles(modsPath, "*", SearchOption.AllDirectories))
+        {
+            string relativeFilePath = Path.GetRelativePath(modsPath, file);
+            string gamePath;
+
+            if (!string.IsNullOrWhiteSpace(virtualPath))
+            {
+                // Use virtual mount mountFilePath
+                gamePath = Path.Combine(@"..\..\..", virtualPath, relativeFilePath);
+            }
+            else
+            {
+                gamePath = Path.Combine(@"..\..\..", relativeFilePath);
+            }
+
+            string normalizedGamePath = gamePath.Replace('\\', '/');
+            Redirections[gamePath] = file;
+            Redirections[normalizedGamePath] = file;
+        }
+    }
+    
+    private void AddPakFolder(string path)
+    {
+        PakFolders.Add(path);
+        AddRedirections(path, null);
+        Log($"Loading PAK files from {path}");
+    }
+
+    private void RemovePakFolder(string path)
+    {
+        if (PakFolders.Remove(path))
+        {
+            Log($"Removed pak folder {path}");
+        }
+    }
+    
+    internal bool TryFindLooseFile(string gameFilePath, out string? looseFile)
+    {
+        return Redirections.TryGetValue(gameFilePath, out looseFile);
     }
 
     internal void LoadUEMounts(string modRootPath, string mountFilePath)

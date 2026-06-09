@@ -20,9 +20,10 @@ If you know of a game that doesn't work you can create an [issue](https://github
 
 | Game       | UE Version | Support      |
 |------------|-|------------|
+| The Callisto Protocol | 4.27 | Need to use ASI Loader or remove DRM with [Steamless](https://github.com/atom0s/Steamless/) |
 | Clair Obscura: Expedition 33 | 5.4 | TODO
 | DRAGON BALL: Sparking! ZERO | 5.1 | TODO
-| Hi-Fi Rush       | 4.27 |  |
+| Hi-Fi Rush       | 4.27 |  Microsoft Store version is currently broken ([Issue](https://github.com/AnimatedSwine37/UnrealEssentials/issues/13)) |
 | Hogwarts Legacy  | 4.27 |
 | Jujutsu Kaisen: Cursed Clash | 5.1 | TODO
 | Lies of P | 4.27 | TODO
@@ -32,7 +33,6 @@ If you know of a game that doesn't work you can create an [issue](https://github
 | Sackboy: A Big Adventure | 4.25 |
 | Scarlet Nexus | 4.25 |
 | Shin Megami Tensei V: Vengeance | 4.27 |
-| The Callisto Protocol | 4.27 | Need to use ASI Loader or remove DRM with [Steamless](https://github.com/atom0s/Steamless/) |
 
 ## Usage
 First you'll need to create a Reloaded mod and set Unreal Esentials as a dependency of it. For more details on making a mod check out Reloaded's [documentation](https://reloaded-project.github.io/Reloaded-II/CreatingMods/).

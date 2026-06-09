@@ -1,4 +1,7 @@
-﻿using UTOC.Stream.Emulator.Interfaces;
+﻿using Reloaded.Mod.Interfaces;
+using riri.yamlscans;
+using UTOC.Stream.Emulator.Interfaces;
+using YamlDotNet.RepresentationModel;
 
 namespace UnrealEssentials;
 
@@ -19,26 +22,280 @@ public enum ObjectCommandExecutorType
     AddRuntime
 }
 
-public struct Signatures
+public class Properties
 {
-    internal string GetPakSigningKeys { get; set; } // Function call to FCoreDelegates::GetPakSigningKeysDelegate in FIoStoreTocResource::Read (short jump)
-    internal string GetPakFolders { get; set; } // FPakPlatformFile::GetPakFolders
-    internal string GMalloc { get; set; } // during initializing GMalloc. Long Jump
-    internal string GetPakOrder { get; set; } // FPakPlatformFile::GetPakOrderFromPakFilePath
-    internal string PakOpenRead { get; set; } // FPakPlatformFile::OpenRead
-    internal string PakOpenAsyncRead { get; set; } // FPakPlatformFile::OpenAsyncRead
-    internal string IsNonPakFilenameAllowed { get; set; } // FPakPlatformFile::IsNonPakFilenameAllowed
-    internal string FileIoStoreOpenContainer { get; set; } // FGenericFileIoStoreImpl::OpenContainer
-    internal string ReadBlocks { get; set; } // FFileIoStore::ReadBlocks
-    internal TocType? TocVersion { get; set; }
-    internal PakType PakVersion { get; set; }
-    internal string FileExists { get; set; } // FPakPlatformFile::FileExists
-    internal string FIOBatch_ReadInternal { get; set; }
-    internal string FAsyncPackage2_StartLoading { get; set; }
-    internal StartLoadingDelegateType StartLoadDelegate { get; set; }
-    internal string GFNamePool { get; set; }
-    internal bool AllowExecuteCommands { get; set; }
-    internal ObjectCommandExecutorType CommandExecutorType { get; set; }
+    public TocType? TocVersion { get; set; } = null;
+    public PakType PakVersion { get; set; } = PakType.Fn64BugFix;
+    public StartLoadingDelegateType StartLoadDelegate { get; set; } = StartLoadingDelegateType.NoArgs;
+    public bool AllowExecuteCommands { get; set; } = false;
+    public ObjectCommandExecutorType CommandExecutorType { get; set; } = ObjectCommandExecutorType.GlobalOnly;
+    public Signatures Signatures { get; private set; } = new();
+    
+    public Properties DeepCopy()
+    {
+        var result = (Properties)MemberwiseClone();
+        result.TocVersion = TocVersion;
+        result.PakVersion = PakVersion;
+        result.StartLoadDelegate = StartLoadDelegate;
+        result.AllowExecuteCommands = AllowExecuteCommands;
+        result.CommandExecutorType = CommandExecutorType;
+        result.Signatures = Signatures.DeepCopy();
+        return result;
+    }
 }
 
+public class Signatures 
+{
+    public List<Candidate> GetPakSigningKeys { get; set; } = []; // Function call to FCoreDelegates::GetPakSigningKeysDelegate in FIoStoreTocResource::Read (short jump)
+    public List<Candidate> GetPakFolders { get; set; } = []; // FPakPlatformFile::GetPakFolders
+    public List<Candidate> GMalloc { get; set; } = []; // during initializing GMalloc. Long Jump
+    public List<Candidate> GetPakOrder { get; set; } = []; // FPakPlatformFile::GetPakOrderFromPakFilePath
+    public List<Candidate> PakOpenRead { get; set; } = []; // FPakPlatformFile::OpenRead
+    public List<Candidate> PakOpenAsyncRead { get; set; } = []; // FPakPlatformFile::OpenAsyncRead
+    public List<Candidate> IsNonPakFilenameAllowed { get; set; } = []; // FPakPlatformFile::IsNonPakFilenameAllowed
+    public List<Candidate> FileIoStoreOpenContainer { get; set; } = []; // FGenericFileIoStoreImpl::OpenContainer
+    public List<Candidate> ReadBlocks { get; set; } = []; // FFileIoStore::ReadBlocks
+    public List<Candidate> FileExists { get; set; } = []; // FPakPlatformFile::FileExists
+    public List<Candidate> FIOBatch_ReadInternal { get; set; } = [];
+    public List<Candidate> FAsyncPackage2_StartLoading { get; set; } = [];
+    public List<Candidate> GFNamePool { get; set; } = [];
 
+    public Signatures DeepCopy()
+    {
+        var result = (Signatures)MemberwiseClone();
+        result.GetPakSigningKeys = GetPakSigningKeys.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.GetPakFolders = GetPakFolders.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.GMalloc = GMalloc.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.GetPakOrder = GetPakOrder.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.PakOpenRead = PakOpenRead.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.IsNonPakFilenameAllowed = IsNonPakFilenameAllowed.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.FileIoStoreOpenContainer = FileIoStoreOpenContainer.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.ReadBlocks = ReadBlocks.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.FAsyncPackage2_StartLoading = FAsyncPackage2_StartLoading.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.GFNamePool = GFNamePool.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        return result;
+    }
+}
+
+public class GameRegistry
+{
+    internal static string[] DistributionTypes = ["Win64", "WinGDK"];
+
+    internal static string DistVersion = "<DistVersion>";
+
+    public Dictionary<string, Properties> ExecutableName { get; } = new();
+    public Dictionary<string, Properties> ExecutableNameStartsWith { get; } = new();
+    public Dictionary<string, Properties> ProductName { get; } = new();
+}
+
+public class SignaturePropertyFactory
+{
+    public Dictionary<string, Properties> EngineVersions { get; }
+    public Dictionary<string, string> FileToBranchName { get; }
+    public GameRegistry GameRegistry;
+    
+    private static string HandleScalar(string Name, YamlNode value)
+        => value.Cast<YamlScalarNode>()?.Value ?? throw new Exception($"Value for {Name} must be a string");
+
+    private static PakType HandlePakVersion(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for PakVersion must be a string");
+        return Enum.TryParse<PakType>(str, out var Value) ? Value : throw new Exception($"Value \"{str}\" is not in PakType");
+    }
+    
+    private static TocType HandleTocVersion(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for TocVersion must be a string");
+        return Enum.TryParse<TocType>(str, out var Value) ? Value : throw new Exception($"Value \"{str}\" is not in TocType");
+    }
+    
+    private static StartLoadingDelegateType HandleStartLoadDelegate(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for StartLoadDelegate must be a string");
+        return Enum.TryParse<StartLoadingDelegateType>(str, out var Value) ? Value : throw new Exception($"Value \"{str}\" is not in StartLoadingDelegateType");
+    }
+
+    private static void TryGetSignature(string key, Dictionary<string, List<Candidate>> signatures, Action<List<Candidate>> callback)
+    {
+        if (signatures.TryGetValue(key, out var source))
+            // callback = source;
+            callback(source);
+    }
+
+    private static void SetSignatures(Properties properties, YamlNode value)
+    {
+        // Signatures is scalar if it has no children
+        if (value.NodeType == YamlNodeType.Scalar) return;
+        var sigSeq = value.Cast<YamlSequenceNode>() ?? throw new Exception("Expected a sequence for signatures");
+        var model = ScanModel.FromNode(sigSeq).ToDictionary();
+        TryGetSignature("GetPakSigningKeys", model, x => properties.Signatures.GetPakSigningKeys = x);
+        TryGetSignature("GetPakFolders", model, x => properties.Signatures.GetPakFolders = x);
+        TryGetSignature("GMalloc", model, x => properties.Signatures.GMalloc = x);
+        TryGetSignature("GetPakOrder", model, x => properties.Signatures.GetPakOrder = x);
+        TryGetSignature("PakOpenRead", model, x => properties.Signatures.PakOpenRead = x);
+        TryGetSignature("PakOpenAsyncRead", model, x => properties.Signatures.PakOpenAsyncRead = x);
+        TryGetSignature("IsNonPakFilenameAllowed", model, x => properties.Signatures.IsNonPakFilenameAllowed = x);
+        TryGetSignature("FileIoStoreOpenContainer", model, x => properties.Signatures.FileIoStoreOpenContainer = x);
+        TryGetSignature("ReadBlocks", model, x => properties.Signatures.ReadBlocks = x);
+        TryGetSignature("FileExists", model, x => properties.Signatures.FileExists = x);
+        TryGetSignature("FIOBatch_ReadInternal", model, x => properties.Signatures.FIOBatch_ReadInternal = x);
+        TryGetSignature("FAsyncPackage2_StartLoading", model, x => properties.Signatures.FAsyncPackage2_StartLoading = x);
+        TryGetSignature("GFNamePool", model, x => properties.Signatures.GFNamePool = x);
+        
+    }
+    
+    // For unit testing
+    public static (string, Properties) ParseEngineYamlStatic(string filePath)
+    {
+        var Value = File.ReadAllText(filePath);
+        var reader = new YamlStream();
+        reader.Load(new StringReader(Value));
+        var root = reader.Documents[0].RootNode.Cast<YamlSequenceNode>() 
+                   ?? throw new Exception("Expected a sequence at the top-level");
+        var properties = new Properties();
+        var branchName = string.Empty;
+        foreach (var child in root.Children)
+        {
+            var mapping = child.GetMapping() ?? 
+                          throw new Exception("Invalid property definition, expected a mapping such as [key: \"value\"]");
+            var key = mapping.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
+            switch (key)
+            {
+                case "VersionIdentifier":
+                    branchName = HandleScalar("VersionIdentifier", mapping.Value);
+                    break;
+                case "PakVersion":
+                    properties.PakVersion = HandlePakVersion(mapping.Value);
+                    break;
+                case "StartLoadDelegate":
+                    properties.StartLoadDelegate = HandleStartLoadDelegate(mapping.Value);
+                    break;
+                case "Signatures":
+                    SetSignatures(properties, mapping.Value);
+                    break;
+                default:
+                    throw new Exception($"Unrecognised property {key}");
+            }
+        }
+        return (branchName, properties);
+    }
+    
+    private void ParseEngineYaml(string filePath)
+    {
+        var Value = File.ReadAllText(filePath);
+        var reader = new YamlStream();
+        reader.Load(new StringReader(Value));
+        var root = reader.Documents[0].RootNode.Cast<YamlSequenceNode>() 
+                   ?? throw new Exception("Expected a sequence at the top-level");
+        var properties = new Properties();
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        var branchName = string.Empty;
+        foreach (var child in root.Children)
+        {
+            var mapping = child.GetMapping() ?? 
+                          throw new Exception("Invalid property definition, expected a mapping such as [key: \"value\"]");
+            var key = mapping.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
+            switch (key)
+            {
+                case "VersionIdentifier":
+                    branchName = HandleScalar("VersionIdentifier", mapping.Value);
+                    break;
+                case "PakVersion":
+                    properties.PakVersion = HandlePakVersion(mapping.Value);
+                    break;
+                case "TocVersion":
+                    properties.TocVersion = HandleTocVersion(mapping.Value);
+                    break;
+                case "StartLoadDelegate":
+                    properties.StartLoadDelegate = HandleStartLoadDelegate(mapping.Value);
+                    break;
+                case "Signatures":
+                    SetSignatures(properties, mapping.Value);
+                    break;
+                default:
+                    throw new Exception($"Unrecognised property {key}");
+            }
+        }
+        EngineVersions.Add(branchName, properties);
+        FileToBranchName.Add(fileName, branchName);
+    }
+
+    private Properties? HandleEngineVersion(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for EngineVersion must be a string");
+        return FileToBranchName.TryGetValue(str, out var BranchName) && 
+               EngineVersions.TryGetValue(BranchName, out var props)
+            ? props.DeepCopy() : null;
+    }
+
+    private void ParseGameYaml(string filePath)
+    {
+        var Value = File.ReadAllText(filePath);
+        var reader = new YamlStream();
+        reader.Load(new StringReader(Value));
+        var root = reader.Documents[0].RootNode.Cast<YamlSequenceNode>() 
+                   ?? throw new Exception("Expected a sequence at the top-level");
+        Properties? properties = null;
+        string? ExecutableName = null;
+        string? ExecutableNameStartsWith = null;
+        string? ProductName = null;
+        foreach (var child in root.Children)
+        {
+            var mapping = child.GetMapping() ??
+                          throw new Exception("Invalid property definition, expected a mapping such as [key: \"value\"]");
+            var key = mapping.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
+            switch (key)
+            {
+                case "EngineVersion":
+                    properties ??= HandleEngineVersion(mapping.Value);
+                    break;
+                case "ExecutableName":
+                    ExecutableName ??= HandleScalar("ExecutableName", mapping.Value);
+                    break;
+                case "ExecutableNameStartsWith":
+                    ExecutableNameStartsWith ??= HandleScalar("ExecutableNameStartsWith", mapping.Value);
+                    break;
+                case "ProductName":
+                    ProductName ??= HandleScalar("ProductName", mapping.Value);
+                    break;
+                case "Signatures":
+                    if (properties == null)
+                        throw new Exception("EngineVersion must be declared before defining signature overrides!");
+                    SetSignatures(properties, mapping.Value);
+                    break;
+                default:
+                    throw new Exception($"Unrecognised property {key}");
+            }
+        }
+        if (ExecutableName != null)
+        {
+            if (ExecutableName.Contains(GameRegistry.DistVersion))
+            {
+                foreach (var variant in GameRegistry.DistributionTypes.Select(x =>
+                             ExecutableName.Replace(GameRegistry.DistVersion, x)))
+                    GameRegistry.ExecutableName.Add(variant, properties!);
+            }
+            else
+            {
+                GameRegistry.ExecutableName.Add(ExecutableName, properties!);
+            }
+        }
+        if (ExecutableNameStartsWith != null)
+            GameRegistry.ExecutableNameStartsWith.Add(ExecutableNameStartsWith, properties!);
+        if (ProductName != null)
+            GameRegistry.ProductName.Add(ProductName, properties!);
+    }
+
+    public SignaturePropertyFactory(string sigDir)
+    {
+        EngineVersions = new();
+        FileToBranchName = new();
+        GameRegistry = new();
+        foreach (var engineYaml in Directory.GetFiles(Path.Combine(sigDir, "Engine"), "*.yaml",
+                     SearchOption.TopDirectoryOnly))
+            ParseEngineYaml(engineYaml);
+        foreach (var gameYaml in Directory.GetFiles(Path.Combine(sigDir, "Game"), "*.yaml",
+                     SearchOption.TopDirectoryOnly))
+            ParseGameYaml(gameYaml);
+    }
+}

@@ -19,7 +19,7 @@ Pop-Location
 Push-Location "./$emulator_parent/$emulator_main"
 # cargo +nightly build --lib --target x86_64-pc-windows-msvc --profile release -Z unstable-options --out-dir "$env:RELOADEDIIMODS\$emulator_name_csharp\"
 $env:RUSTFLAGS = "-C panic=abort -C lto=fat -C embed-bitcode=yes"
-cargo +nightly rustc --lib --release -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --crate-type cdylib --target $target_triple
+cargo +nightly rustc --lib --release -Z build-std=std,panic_abort --crate-type cdylib --target $target_triple
 # copy required files from target
 Push-Location "../target/$target_triple/release"
 Copy-Item "$output_name.dll" -Destination "$env:RELOADEDIIMODS\$emulator_name_csharp"

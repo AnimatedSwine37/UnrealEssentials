@@ -60,25 +60,15 @@ jobs:
         fetch-depth: 0
         submodules: 'recursive'
         
-    - name: Setup .NET Core SDK (5.0)
+    - name: Setup .NET Core SDK (5.0) # For Reloaded Publisher
       uses: actions/setup-dotnet@v1.8.2
       with:
         dotnet-version: 5.0.x
-        
-    - name: Setup .NET Core SDK (6.0)
-      uses: actions/setup-dotnet@v1.8.2
-      with:
-        dotnet-version: 6.0.x
 
-    - name: Setup .NET Core SDK (7.0)
+    - name: Setup .NET Core SDK (9.0) # For Unreal Essentials
       uses: actions/setup-dotnet@v1.8.2
       with:
-        dotnet-version: 7.0.x
-
-    - name: Setup .NET Core SDK (8.0)
-      uses: actions/setup-dotnet@v1.8.2
-      with:
-        dotnet-version: 8.0.x
+        dotnet-version: 9.0.x
 
     - name: Setup Rust
       uses: hecrj/setup-rust-action@v2.0.1
