@@ -25,7 +25,7 @@ public enum PakType
     Fn64BugFix = 9
 }
 
-/// This must stay in sync with EngineVersion in fileemu-utoc-stream-emulator!
+/// This must stay in sync with EngineVersion in utoc-emulator over in Rust land!
 public enum EngineVersion : uint
 {
     UE_4_25 = (4 << 0x8) + 25,

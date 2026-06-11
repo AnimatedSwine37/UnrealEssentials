@@ -1,5 +1,5 @@
-﻿- VersionIdentifier: "++UE5+Release-5.7"
-- TocVersion: "ReplaceIoChunkHashWithIoHash"
-- PakVersion: "Fn64BugFix"
-- StartLoadDelegate: "AsyncPackageInheritsRefCount"
-- Signatures:
+VersionIdentifier: "++UE5+Release-5.7"
+TocVersion: "ReplaceIoChunkHashWithIoHash"
+PakVersion: "Fn64BugFix"
+StartLoadDelegate: "AsyncPackageInheritsRefCount"
+Signatures:

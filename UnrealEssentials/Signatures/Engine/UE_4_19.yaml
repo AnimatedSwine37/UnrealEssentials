@@ -1,3 +1,3 @@
-﻿- VersionIdentifier: "++UE4+Release-4.19"
-- Signatures:
-    - PakOpenRead: "48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 41 0F B6 E8"
+VersionIdentifier: "++UE4+Release-4.19"
+Signatures:
+    PakOpenRead: "48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 41 0F B6 E8"

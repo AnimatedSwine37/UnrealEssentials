@@ -126,7 +126,7 @@ public class SignaturePropertyFactory
     {
         // Signatures is scalar if it has no children
         if (value.NodeType == YamlNodeType.Scalar) return;
-        var sigSeq = value.Cast<YamlSequenceNode>() ?? throw new Exception("Expected a sequence for signatures");
+        var sigSeq = value.Cast<YamlMappingNode>() ?? throw new Exception("Expected a sequence for signatures");
         var model = ScanModel.FromNode(sigSeq).ToDictionary();
         TryGetSignature("GetPakSigningKeys", model, x => properties.Signatures.GetPakSigningKeys = x);
         TryGetSignature("GetPakFolders", model, x => properties.Signatures.GetPakFolders = x);
@@ -150,28 +150,26 @@ public class SignaturePropertyFactory
         var Value = File.ReadAllText(filePath);
         var reader = new YamlStream();
         reader.Load(new StringReader(Value));
-        var root = reader.Documents[0].RootNode.Cast<YamlSequenceNode>() 
-                   ?? throw new Exception("Expected a sequence at the top-level");
+        var root = reader.Documents[0].RootNode.Cast<YamlMappingNode>() 
+                   ?? throw new Exception("Expected a mapping at the top-level");
         var properties = new Properties();
         var branchName = string.Empty;
         foreach (var child in root.Children)
         {
-            var mapping = child.GetMapping() ?? 
-                          throw new Exception("Invalid property definition, expected a mapping such as [key: \"value\"]");
-            var key = mapping.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
+            var key = child.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
             switch (key)
             {
                 case "VersionIdentifier":
-                    branchName = HandleScalar("VersionIdentifier", mapping.Value);
+                    branchName = HandleScalar("VersionIdentifier", child.Value);
                     break;
                 case "PakVersion":
-                    properties.PakVersion = HandlePakVersion(mapping.Value);
+                    properties.PakVersion = HandlePakVersion(child.Value);
                     break;
                 case "StartLoadDelegate":
-                    properties.StartLoadDelegate = HandleStartLoadDelegate(mapping.Value);
+                    properties.StartLoadDelegate = HandleStartLoadDelegate(child.Value);
                     break;
                 case "Signatures":
-                    SetSignatures(properties, mapping.Value);
+                    SetSignatures(properties, child.Value);
                     break;
                 default:
                     throw new Exception($"Unrecognised property {key}");
@@ -185,32 +183,30 @@ public class SignaturePropertyFactory
         var Value = File.ReadAllText(filePath);
         var reader = new YamlStream();
         reader.Load(new StringReader(Value));
-        var root = reader.Documents[0].RootNode.Cast<YamlSequenceNode>() 
-                   ?? throw new Exception("Expected a sequence at the top-level");
+        var root = reader.Documents[0].RootNode.Cast<YamlMappingNode>() 
+                   ?? throw new Exception("Expected a mapping at the top-level");
         var properties = new Properties();
         var fileName = Path.GetFileNameWithoutExtension(filePath);
         var branchName = string.Empty;
         foreach (var child in root.Children)
         {
-            var mapping = child.GetMapping() ?? 
-                          throw new Exception("Invalid property definition, expected a mapping such as [key: \"value\"]");
-            var key = mapping.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
+            var key = child.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
             switch (key)
             {
                 case "VersionIdentifier":
-                    branchName = HandleScalar("VersionIdentifier", mapping.Value);
+                    branchName = HandleScalar("VersionIdentifier", child.Value);
                     break;
                 case "PakVersion":
-                    properties.PakVersion = HandlePakVersion(mapping.Value);
+                    properties.PakVersion = HandlePakVersion(child.Value);
                     break;
                 case "TocVersion":
-                    properties.TocVersion = HandleTocVersion(mapping.Value);
+                    properties.TocVersion = HandleTocVersion(child.Value);
                     break;
                 case "StartLoadDelegate":
-                    properties.StartLoadDelegate = HandleStartLoadDelegate(mapping.Value);
+                    properties.StartLoadDelegate = HandleStartLoadDelegate(child.Value);
                     break;
                 case "Signatures":
-                    SetSignatures(properties, mapping.Value);
+                    SetSignatures(properties, child.Value);
                     break;
                 default:
                     throw new Exception($"Unrecognised property {key}");
@@ -233,35 +229,33 @@ public class SignaturePropertyFactory
         var Value = File.ReadAllText(filePath);
         var reader = new YamlStream();
         reader.Load(new StringReader(Value));
-        var root = reader.Documents[0].RootNode.Cast<YamlSequenceNode>() 
-                   ?? throw new Exception("Expected a sequence at the top-level");
+        var root = reader.Documents[0].RootNode.Cast<YamlMappingNode>() 
+                   ?? throw new Exception("Expected a mapping at the top-level");
         Properties? properties = null;
         string? ExecutableName = null;
         string? ExecutableNameStartsWith = null;
         string? ProductName = null;
         foreach (var child in root.Children)
         {
-            var mapping = child.GetMapping() ??
-                          throw new Exception("Invalid property definition, expected a mapping such as [key: \"value\"]");
-            var key = mapping.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
+            var key = child.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
             switch (key)
             {
                 case "EngineVersion":
-                    properties ??= HandleEngineVersion(mapping.Value);
+                    properties ??= HandleEngineVersion(child.Value);
                     break;
                 case "ExecutableName":
-                    ExecutableName ??= HandleScalar("ExecutableName", mapping.Value);
+                    ExecutableName ??= HandleScalar("ExecutableName", child.Value);
                     break;
                 case "ExecutableNameStartsWith":
-                    ExecutableNameStartsWith ??= HandleScalar("ExecutableNameStartsWith", mapping.Value);
+                    ExecutableNameStartsWith ??= HandleScalar("ExecutableNameStartsWith", child.Value);
                     break;
                 case "ProductName":
-                    ProductName ??= HandleScalar("ProductName", mapping.Value);
+                    ProductName ??= HandleScalar("ProductName", child.Value);
                     break;
                 case "Signatures":
                     if (properties == null)
                         throw new Exception("EngineVersion must be declared before defining signature overrides!");
-                    SetSignatures(properties, mapping.Value);
+                    SetSignatures(properties, child.Value);
                     break;
                 default:
                     throw new Exception($"Unrecognised property {key}");

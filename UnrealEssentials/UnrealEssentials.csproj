@@ -56,7 +56,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\riri.yamlscans\riri.yamlscans\riri.yamlscans.csproj" />
     <ProjectReference Include="..\UnrealEssentials.Interfaces\UnrealEssentials.Interfaces.csproj" />
-    <ProjectReference Include="..\UnrealEssentials.Signatures\UnrealEssentials.Signatures.csproj" />
     <ProjectReference Include="..\UTOC.Stream.Emulator.Interfaces\UTOC.Stream.Emulator.Interfaces.csproj" />
   </ItemGroup>
 
