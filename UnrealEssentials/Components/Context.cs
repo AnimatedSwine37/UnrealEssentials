@@ -184,14 +184,14 @@ internal static class ContextBuilder
     
     private static bool CheckIoStore(Properties props)
     {
-        if (props.TocVersion == null)
+        // props.TocVersion
+        if (((uint)props.EngineVersion & ushort.MaxValue) < (uint)EngineVersion.UE_4_25)
         {
-            Log("Game does not use UTOCs as TocVersion was null");
+            Log($"Game does not use UTOCs, EngineVersion is too old ({props.EngineVersion})");
             return false;
         }
-
         // Look for any utoc files in the game's folder
-        if(Directory.GetFiles("../../..", "*.utoc", SearchOption.AllDirectories).Length == 0)
+        if (Directory.GetFiles("../../..", "*.utoc", SearchOption.AllDirectories).Length == 0)
         {
             Log("Game does not include any UTOC files");
             return false;
@@ -220,7 +220,7 @@ internal class Context
        
         // Initialize UTOC Emulator
         _modLoader.GetController<IUtocEmulator>().TryGetTarget(out UtocEmulator);
-        UtocEmulator!.Initialise(Properties.TocVersion, Properties.PakVersion, AddPakFolder, RemovePakFolder);
+        UtocEmulator!.Initialise(Properties.EngineVersion, HasUtocs, AddPakFolder, RemovePakFolder);
     }
 
     internal void AddFolder(string folder)

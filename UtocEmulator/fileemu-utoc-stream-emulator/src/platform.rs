@@ -3,7 +3,7 @@ use std::fs::{ DirEntry, File };
 #[cfg(target_os = "linux")]
 use std::os::linux;
 
-#[cfg(target_os = "unix")]
+#[cfg(target_family = "unix")]
 use std::os::unix;
 
 #[cfg(target_os = "windows")]
@@ -24,13 +24,13 @@ impl Metadata {
         linux::fs::MetadataExt::st_size(&meta)
     }
 
-    #[cfg(target_os = "unix")]
+    #[cfg(target_family = "unix")]
     pub fn get_object_size(fs_obj: &DirEntry) -> u64 {
         let meta = fs_obj.metadata().unwrap();
         linux::fs::MetadataExt::size(&meta)
     }
 
-    #[cfg(target_os = "unix")]
+    #[cfg(target_family = "unix")]
     pub fn get_file_size(fs_obj: &File) -> u64 {
         let meta = fs_obj.metadata().unwrap();
         linux::fs::MetadataExt::size(&meta)

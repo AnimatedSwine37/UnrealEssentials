@@ -6,11 +6,11 @@ A mod for [Reloaded-II](https://reloaded-project.github.io/Reloaded-II/) that ma
 - Loading loose files from UTOCs and PAKs
 - Removing signature checks so any file can be used
 - Logging file access
-- Support for UE 4.25-4.27 and 5.0-5.4 (see [Supported Games](#supported-games) for more details)
+- Support for UE 4.25-4.27 and UE 5 (see [Supported Games](#supported-games) for more details)
 - API for adding file replacements from code (see [documentation](/UnrealEssentials.Interfaces/README.md))
 
 ## Planned Features
-- Support for older UE4 versions and UE5 versions 5.5 and above
+- Support for older UE4 versions
 - Automatic conversion of cooked uassets to IO Store uassets (see note in [Loose Files](#loose-files))
 
 ## Supported Games
@@ -20,19 +20,32 @@ If you know of a game that doesn't work you can create an [issue](https://github
 
 | Game       | UE Version | Support      |
 |------------|-|------------|
-| The Callisto Protocol | 4.27 | Need to use ASI Loader or remove DRM with [Steamless](https://github.com/atom0s/Steamless/) |
-| Clair Obscura: Expedition 33 | 5.4 | TODO
-| DRAGON BALL: Sparking! ZERO | 5.1 | TODO
-| Hi-Fi Rush       | 4.27 |  Microsoft Store version is currently broken ([Issue](https://github.com/AnimatedSwine37/UnrealEssentials/issues/13)) |
-| Hogwarts Legacy  | 4.27 |
-| Jujutsu Kaisen: Cursed Clash | 5.1 | TODO
-| Lies of P | 4.27 | TODO
-| Persona 3 Reload | 4.27 |
-| Rune Factory: Guardians of Azuma | 5.4 | TODO
-| Sonic Racing: CrossWorlds | 5.4 | TODO
-| Sackboy: A Big Adventure | 4.25 |
-| Scarlet Nexus | 4.25 |
-| Shin Megami Tensei V: Vengeance | 4.27 |
+| [Clair Obscur: Expedition 33](https://store.steampowered.com/app/1903340/Clair_Obscur_Expedition_33/) | 5.4 | TODO
+| [DRAGON BALL: Sparking! ZERO](https://store.steampowered.com/app/1790600/DRAGON_BALL_Sparking_ZERO/) | 5.1 | TODO
+| [Final Fantasy 7 Rebirth](https://store.steampowered.com/app/2909400/FINAL_FANTASY_VII_REBIRTH/) | 4.26 | TODO, requires custom engine version due to IO Store changes
+| [Hi-Fi Rush](https://store.steampowered.com/app/1817230/HiFi_RUSH/)       | 4.27 |  Microsoft Store version is currently broken ([Issue](https://github.com/AnimatedSwine37/UnrealEssentials/issues/13)) |
+| [Hogwarts Legacy](https://store.steampowered.com/app/990080/Hogwarts_Legacy/) | 4.27 |
+| [HOLE](https://store.steampowered.com/app/2971610/HOLE/) | 5.5 | TODO
+| [Invincible VS](https://store.steampowered.com/app/2353060/Invincible_VS/) | 5.5 | TODO
+| [inZOI](https://store.steampowered.com/app/2456740/inZOI/) | 5.6 | TODO
+| [Jujutsu Kaisen: Cursed Clash](https://store.steampowered.com/app/1877020/Jujutsu_Kaisen_Cursed_Clash/) | 5.1 | TODO
+| [Lies of P](https://store.steampowered.com/app/1627720/Lies_of_P/) | 4.27 | TODO
+| [Life is Strange: Double Exposure](https://store.steampowered.com/app/1874000/Life_is_Strange_Double_Exposure/) | 5.2 | TODO
+| [Lego Batman: Legacy of the Dark Knight](https://store.steampowered.com/app/2215200/LEGO_Batman_Legacy_of_the_Dark_Knight/) | 5.6 | TODO
+| [Marvel Rivals](https://store.steampowered.com/app/2767030/Marvel_Rivals/) | 5.3 | TODO
+| [Master Detective Archives RAIN CODE](https://store.steampowered.com/app/2903950/Master_Detective_Archives_RAIN_CODE_Plus/) | 4.27 |
+| [Nobody Wants to Die](https://store.steampowered.com/app/1939970/Nobody_Wants_to_Die/) | 5.3 | TODO
+| [Outside the Blocks](https://store.steampowered.com/app/2350220/Outside_the_Blocks/) | 5.4 | TODO
+| [Persona 3 Reload](https://store.steampowered.com/app/2161700/Persona_3_Reload/) | 4.27 | Use [Persona 3 Reload Essentials](https://gamebanana.com/mods/494020) for game specific features
+| [ROMEO IS A DEAD MAN](https://store.steampowered.com/app/3050900/ROMEO_IS_A_DEAD_MAN/) | 5.6 | TODO
+| [Rune Factory: Guardians of Azuma](https://store.steampowered.com/app/2864560/Rune_Factory_Guardians_of_Azuma/) | 5.4 | TODO
+| [Sackboy: A Big Adventure](https://store.steampowered.com/app/1599660/Sackboy_A_Big_Adventure/) | 4.25 |
+| [SCARLET NEXUS](https://store.steampowered.com/app/775500/SCARLET_NEXUS/) | 4.25 |
+| [Shin Megami Tensei V: Vengeance](https://store.steampowered.com/app/1875830/Shin_Megami_Tensei_V_Vengeance/) | 4.27 |
+| [Sonic Racing: CrossWorlds](https://store.steampowered.com/app/2486820/Sonic_Racing_CrossWorlds/) | 5.4 | TODO
+| [Spirit City: Lofi Sessions](https://store.steampowered.com/app/2113850/Spirit_City_Lofi_Sessions/) | 5.7 | TODO
+| [Subnautica 2](https://store.steampowered.com/app/1962700/Subnautica_2/) | 5.6 | TODO
+| [The Callisto Protocol](https://store.steampowered.com/app/1544020/The_Callisto_Protocol/) | 4.27 | Need to use ASI Loader or remove DRM with [Steamless](https://github.com/atom0s/Steamless/) |
 
 ## Usage
 First you'll need to create a Reloaded mod and set Unreal Esentials as a dependency of it. For more details on making a mod check out Reloaded's [documentation](https://reloaded-project.github.io/Reloaded-II/CreatingMods/).

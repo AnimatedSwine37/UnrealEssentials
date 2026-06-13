@@ -31,7 +31,8 @@ public static class LogAdapter
         LoggerInstance = _loggerInstance;
         unsafe
         {
-            RustApi.SetReloadedLogger(&ReloadedLoggerWrite);   
+            RustApi.SetReloadedLogger(&ReloadedLoggerWrite);
+            RustApiNew.set_reloaded_logger(&ReloadedLoggerWrite);
         }
     }
 }

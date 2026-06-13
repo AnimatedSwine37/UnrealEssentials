@@ -1,0 +1,180 @@
+use std::collections::HashMap;
+use std::fs::Metadata;
+use std::os::windows;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
+use retoc::{lower_utf16_cityhash, FPackageId};
+use retoc::version::EngineVersion;
+use walkdir::{DirEntry, WalkDir};
+use crate::{log, GenericResult};
+use crate::metadata::UtocMetadata;
+
+pub const TARGET_TOC:   &'static str = "UnrealEssentials.utoc";
+pub const TARGET_CAS:   &'static str = "UnrealEssentials.ucas";
+pub const MOUNT_POINT:  &'static str = "../../../";
+
+const ENGINE_DOMAIN: &'static str = "Engine";
+
+pub(crate) const UASSET_EXTENSION: &'static str = "uasset";
+pub(crate) const UBULK_EXTENSION: &'static str = "ubulk";
+pub(crate) const UPTNL_EXTENSION: &'static str = "uptnl";
+pub(crate) const UMAP_EXTENSION: &'static str = "umap";
+
+pub(crate) const UTOCMETA: &'static str = ".utocmeta";
+pub(crate) const UASSETMETA_EXTENSION: &'static str = "uassetmeta";
+
+pub(crate) static ASSET_EXTENSIONS: [&'static str; 5] = [
+    UASSET_EXTENSION,
+    UBULK_EXTENSION,
+    UPTNL_EXTENSION,
+    UMAP_EXTENSION,
+    UASSETMETA_EXTENSION,
+];
+
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+pub enum AssetType {
+    UnrealAsset,
+    BulkData,
+    OptionalBulkData,
+    UnrealMap,
+    EssentialsAssetMetadata,
+}
+
+impl AssetType {
+    pub(crate) fn get_extension(&self) -> &str {
+        ASSET_EXTENSIONS[*self as usize]
+    }
+}
+
+impl From<&str> for AssetType {
+    fn from(value: &str) -> Self {
+        match value {
+            UASSET_EXTENSION => AssetType::UnrealAsset,
+            UBULK_EXTENSION => AssetType::BulkData,
+            UPTNL_EXTENSION => AssetType::OptionalBulkData,
+            UMAP_EXTENSION => AssetType::UnrealMap,
+            UASSETMETA_EXTENSION => AssetType::EssentialsAssetMetadata,
+            _ => panic!("Unknown file extension for AssetType (this should have been caught earlier!)")
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct AssetEntry {
+    pub(crate) os_path: PathBuf,
+    pub(crate) size: u64,
+}
+
+impl AssetEntry {
+    pub fn new(os_path: PathBuf, size: u64) -> Self {
+        Self { os_path, size }
+    }
+}
+
+type AssetListMap = HashMap<String, AssetEntry>;
+pub static ASSET_LIST: Mutex<Option<AssetListMap>> = Mutex::new(None);
+
+#[derive(Debug)]
+pub struct AssetCollection;
+
+impl AssetCollection {
+    pub(crate) fn instance() -> MutexGuard<'static, Option<AssetListMap>> {
+        let mut guard = ASSET_LIST.lock().unwrap();
+        if guard.is_none() {
+            *guard = Some(HashMap::new());
+        }
+        guard
+    }
+
+    // Essentials 1.x: utocmeta is treated as a filename only
+    fn filter_utocmeta(d: &DirEntry) -> bool {
+        d.depth() == 1 && d.path().file_name().map_or(
+            false, |v| v.to_str().unwrap() == UTOCMETA)
+    }
+
+    pub(crate) fn filter_dir_entries(dir_entry: walkdir::Result<DirEntry>) -> Option<DirEntry> {
+        dir_entry.ok()
+            .and_then(|d| {
+                // must be a file
+                let is_file = d.metadata().ok().map_or(false, |m| m.is_file());
+                // check the file format!
+                let check_ext = d.path().extension().map_or(
+                    false, |ext| ASSET_EXTENSIONS.contains(&ext.to_str().unwrap()))
+                    || Self::filter_utocmeta(&d);
+                if !is_file || !check_ext { return None }
+                Some(d)
+            }
+        )
+    }
+
+    #[cfg(target_os = "linux")]
+    fn os_file_size(metadata: &Metadata) -> u64 {
+        linux::fs::MetadataExt::st_size(&meta)
+    }
+
+    #[cfg(target_os = "windows")]
+    fn os_file_size(metadata: &Metadata) -> u64 {
+        windows::fs::MetadataExt::file_size(metadata)
+    }
+
+    /// The input path is expected to be relative to the UnrealEssentials folder:
+    /// e.g The path's value should be P3R/Content/...
+    pub(crate) fn convert_to_asset_path<P0: AsRef<Path>, P1: AsRef<Path>>(path: P0, base: P1) -> String {
+        let path = {
+            let path = path.as_ref().strip_prefix(base.as_ref()).unwrap().to_str().unwrap().to_owned();
+            if cfg!(target_os = "windows") {
+                path.replace("\\", "/")
+            } else {
+                path
+            }
+        };
+        let parts: Vec<&str> = path.splitn(3, "/").collect();
+        // check that path is that long
+        let domain = match parts[0] {
+            ENGINE_DOMAIN => ENGINE_DOMAIN,
+            _ => "Game"
+        };
+        format!("../../../{}/{}", domain, parts[2])
+    }
+
+    /// Recursively registers all the assets inside of a folder into the asset list to get replaced.
+    /// If you are working with an asset type that can be partially written to such as a data table,
+    /// use UE Toolkit (https://github.com/RyoTune/UE.Toolkit) as it allows for file merging
+    pub(crate) fn add_from_folder<P: AsRef<Path>>(path: P, version: EngineVersion) -> GenericResult<()> {
+        let path = path.as_ref().to_owned();
+        if !path.exists() { return Ok(()); }
+        for file in WalkDir::new(&path).into_iter().filter_map(Self::filter_dir_entries) {
+            let os_path = file.path().to_owned();
+            // log!(Debug, "{:?}, {:?}", &os_path, path.as_path());
+            match os_path.extension().map(|s| s.to_str().unwrap()) {
+                Some(UASSETMETA_EXTENSION) => {
+                    let asset_path = Self::convert_to_asset_path(&os_path, path.as_path());
+                    UtocMetadata::instance().as_mut().unwrap().add_from_uassetmeta(
+                        FPackageId(lower_utf16_cityhash(&asset_path)), os_path.as_path())?;
+                },
+                Some(_) => {
+                    let asset_path = Self::convert_to_asset_path(&os_path, path.as_path());
+                    let file_size = Self::os_file_size(&file.metadata()?);
+                    Self::instance().as_mut().unwrap().insert(asset_path, AssetEntry::new(os_path, file_size));
+                },
+                None => match os_path.file_name().map(|f| f.to_str().unwrap()) {
+                    Some(UTOCMETA) => {
+                        UtocMetadata::instance().as_mut().unwrap().add_from_utocmeta(
+                            std::fs::read(file.path())?.as_slice(), version)?;
+                    },
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn add_from_folder_with_mount<P0: AsRef<Path>, P1: AsRef<Path>>(
+        path: P0, mount: P1, _version: EngineVersion) -> GenericResult<()> {
+        let (path, mount) = (path.as_ref().to_owned(), mount.as_ref().to_owned());
+        if !path.exists() || !mount.exists() { return Ok(()); }
+        log!(Information, "TODO: add_from_folder_with_mount");
+        Ok(())
+    }
+}

@@ -3,47 +3,19 @@ using FileEmulationFramework.Lib.Utilities;
 using Reloaded.Mod.Interfaces;
 using Reloaded.Mod.Interfaces.Internal;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
-using System.Diagnostics;
 using UTOC.Stream.Emulator.Configuration;
 using UTOC.Stream.Emulator.Template;
 using UTOC.Stream.Emulator.Interfaces;
 
 namespace UTOC.Stream.Emulator
 {
-    /// <summary>
-    /// Your mod logic goes here.
-    /// </summary>
-    public class Mod : ModBase, IExports // <= Do not Remove.
+    public class Mod : ModBase, IExports
     {
-        /// <summary>
-        /// Provides access to the mod loader API.
-        /// </summary>
         private readonly IModLoader _modLoader;
-
-        /// <summary>
-        /// Provides access to the Reloaded.Hooks API.
-        /// </summary>
-        /// <remarks>This is null if you remove dependency on Reloaded.SharedLib.Hooks in your mod.</remarks>
         private readonly IReloadedHooks? _hooks;
-
-        /// <summary>
-        /// Provides access to the Reloaded logger.
-        /// </summary>
         private readonly ILogger _logger;
-
-        /// <summary>
-        /// Entry point into the mod, instance that created this class.
-        /// </summary>
         private readonly IMod _owner;
-
-        /// <summary>
-        /// Provides access to this mod's configuration.
-        /// </summary>
         private Config _configuration;
-
-        /// <summary>
-        /// The configuration of the currently executing mod.
-        /// </summary>
         private readonly IModConfig _modConfig;
 
         // File Emulation Framework Globals
@@ -54,7 +26,9 @@ namespace UTOC.Stream.Emulator
 
         public Mod(ModContext context) 
         {
+#if DEBUG
             //Debugger.Launch();
+#endif
             _modLoader = context.ModLoader;
             _hooks = context.Hooks;
             _logger = context.Logger;
@@ -64,24 +38,25 @@ namespace UTOC.Stream.Emulator
 
             _log = new Logger(_logger, _configuration.LogLevel);
             LogAdapter.RegisterLogger(_log);
+            RustApiNew.SetCallbacks();
 
             // Expose API
             _api = new Api(Initialise, (folder) => _emu.AddFromFolder(folder), (folder, mount) => _emu.AddFromFolderWithMount(folder, mount));
             _modLoader.AddOrReplaceController(context.Owner, _api);
         }
 
-        public void Initialise(TocType? tocType, PakType pakType, Action<string> addPakFolder, Action<string> removePakFolder)
+        public void Initialise(EngineVersion engineVersion, bool hasUtocs, Action<string> addPakFolder, Action<string> removePakFolder)
         {
             _log.Info("Starting UTOC.Stream.Emulator");
             _emu = new UtocEmulator(
-                _log, _configuration.DumpFiles, _modLoader.GetDirectoryForModId(_modConfig.ModId), addPakFolder);
+                _log, _configuration, _modLoader.GetDirectoryForModId(_modConfig.ModId), addPakFolder);
 
             _modLoader.ModLoading += OnModLoading;
             _modLoader.OnModLoaderInitialized += OnLoaderInit;
 
             var ctrl_weak = _modLoader.GetController<IEmulationFramework>().TryGetTarget(out var framework);
-            _emu.TocVersion = tocType; // Set Toc Version
-            _emu.PakVersion = pakType; // Set Pak Version
+            _emu.EngineVersion = engineVersion;
+            _emu.HasUtocs = hasUtocs;
             framework!.Register(_emu);
         }
         
@@ -110,6 +85,6 @@ namespace UTOC.Stream.Emulator
 #pragma warning restore CS8618
         #endregion
 
-        public Type[] GetTypes() => new[] { typeof(IUtocEmulator) };
+        public Type[] GetTypes() => [typeof(IUtocEmulator)];
     }
 }

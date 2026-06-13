@@ -1,0 +1,20 @@
+[package]
+name = "utoc-emulator"
+authors = ["Rirurin"]
+version = "2.0.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+bitflags = "2.13.0"
+# blake3 = "1.8.2"
+byteorder = "1.5.0"
+# cityhasher = "0.1.0"
+console = "0.16.2"
+# retoc = { git = "https://github.com/trumank/retoc" }
+retoc = { git = "https://github.com/rirurin/retoc" }
+indicatif = "0.18.4"
+# retoc = { path = "../../../retoc/retoc" }
+serde = { version = "1.0.228", features = ["derive"] }
+typed-path = "0.12.3"
+walkdir = "2.5.0"

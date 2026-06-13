@@ -19,10 +19,10 @@ public class Api : IUtocEmulator
 
     public void AddFromFolderWithMount(string folder, string virtualPath) => _addFromFolderWithMount(folder, virtualPath);
 
-    public void Initialise(TocType? tocType, PakType pakType, Action<string> addPakFolder, Action<string> removePakFolder)
+    public void Initialise(EngineVersion engineVersion, bool hasUtocs, Action<string> addPakFolder, Action<string> removePakFolder)
     {
-        _initialise(tocType, pakType, addPakFolder, removePakFolder);
+        _initialise(engineVersion, hasUtocs, addPakFolder, removePakFolder);
     }
 
-    internal delegate void InitialiseDelegate(TocType? tocType, PakType pakType, Action<string> addPakFolder, Action<string> removePakFolder);
+    internal delegate void InitialiseDelegate(EngineVersion engineVersion, bool hasUtocs, Action<string> addPakFolder, Action<string> removePakFolder);
 }

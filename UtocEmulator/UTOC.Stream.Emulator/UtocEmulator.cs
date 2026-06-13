@@ -6,6 +6,7 @@ using FileEmulationFramework.Lib.Utilities;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using UTOC.Stream.Emulator.Configuration;
 using UTOC.Stream.Emulator.Interfaces;
 using Strim = System.IO.Stream;
 
@@ -21,10 +22,12 @@ namespace UTOC.Stream.Emulator
     }
     public class UtocEmulator : IEmulator
     {
-        public bool DumpFiles { get; set; }
+        public Config _configuration { get; set; }
         public Logger _logger { get; init; }
-        public TocType? TocVersion { get; set; }
-        public PakType PakVersion { get; set; }
+        // public TocType? TocVersion { get; set; }
+        // public PakType PakVersion { get; set; }
+        public EngineVersion EngineVersion { get; set; }
+        public bool HasUtocs { get; set; }
         public Strim? TocStream { get; set; }
         public Strim? CasStream { get; set; }
         private string ModPath { get; init; }
@@ -34,10 +37,10 @@ namespace UTOC.Stream.Emulator
 
         private readonly ConcurrentDictionary<string, Strim?> _pathToStream = new(StringComparer.OrdinalIgnoreCase);
 
-        public UtocEmulator(Logger logger, bool canDump, string modPath, Action<string> addPakFolderCb) 
+        public UtocEmulator(Logger logger, Config configuration, string modPath, Action<string> addPakFolderCb) 
         {
             _logger = logger; 
-            DumpFiles = canDump;
+            _configuration = configuration;
             ModPath = modPath;
             ModTargetFilesDirectory = Path.Combine(ModPath, Constants.TargetDir);
             ModDummyPakFilesDirectory = Path.Combine(ModPath, Constants.DummyPakDir);
@@ -47,7 +50,7 @@ namespace UTOC.Stream.Emulator
         public bool TryCreateFile(IntPtr handle, string filepath, string route, out IEmulatedFile emulated)
         {
             emulated = null!;
-            if (TocVersion == null) return false; // This game's version is too old for IO Store, quit here
+            if (!HasUtocs) return false; // This game's version is too old for IO Store, quit here
             // Check if we've already made a custom UTOC
             if (_pathToStream.TryGetValue(filepath, out var stream))
             {
@@ -68,8 +71,8 @@ namespace UTOC.Stream.Emulator
             stream = TocStream;
             _pathToStream[path] = stream;
             emulated = new EmulatedFile<Strim>(stream);
-            _logger.Info($"[UtocEmulator] Created Emulated Table of Contents with Path {path}");
-            if (DumpFiles)
+            _logger.LogInfo($"Created Emulated Table of Contents with Path {path}");
+            if (_configuration.DumpFiles)
                 DumpFile(path, stream);
             return true;
         }
@@ -78,19 +81,24 @@ namespace UTOC.Stream.Emulator
         {
             var streams = new List<StreamOffsetPair<Strim>>();
             long streamEnd = 0;
-            for (int i = 0; i < blockCount; i++)
+            for (var i = 0; i < blockCount; i++)
             {
                 var containerBlock = Marshal.PtrToStructure<PartitionBlock>(blockPtr);
+                // _logger.LogInfo($"{Marshal.PtrToStringUni(containerBlock.osPath)}: {containerBlock.start:x} -> {containerBlock.start + containerBlock.length:x}");
                 streams.Add(new(
                     new FileStream(Marshal.PtrToStringUni(containerBlock.osPath), FileMode.Open),
                     OffsetRange.FromStartAndLength(containerBlock.start, containerBlock.length)
                 ));
                 var containerBlockEnd = containerBlock.start + containerBlock.length;
-                var diff = Mathematics.RoundUp(containerBlockEnd, Constants.DefaultCompressionBlockAlignment) - containerBlockEnd;
-                if (diff > 0)
-                    streams.Add(new(new PaddingStream(0, (int)diff), OffsetRange.FromStartAndLength(containerBlockEnd, diff)));
+                if (!_configuration.UseNewEmulator)
+                {
+                    var diff = Mathematics.RoundUp(containerBlockEnd, Constants.DefaultCompressionBlockAlignment) - containerBlockEnd;
+                    if (diff > 0)
+                        streams.Add(new(new PaddingStream(0, (int)diff), OffsetRange.FromStartAndLength(containerBlockEnd, diff)));   
+                }
                 unsafe { blockPtr += sizeof(PartitionBlock); }
-                streamEnd = Mathematics.RoundUp(containerBlockEnd, Constants.DefaultCompressionBlockAlignment);
+
+                streamEnd = _configuration.UseNewEmulator ? containerBlockEnd : Mathematics.RoundUp(containerBlockEnd, Constants.DefaultCompressionBlockAlignment);
             }
             unsafe
             {
@@ -110,8 +118,8 @@ namespace UTOC.Stream.Emulator
             stream = CasStream;
             _pathToStream[path] = stream;
             emulated = new EmulatedFile<Strim>(stream);
-            _logger.Info($"[UtocEmulator] Created Emulated Container with Path {path}");
-            if (DumpFiles)
+            _logger.LogInfo($"Created Emulated Container with Path {path}");
+            if (_configuration.DumpFiles)
                 DumpFile(path, stream);
             return true;
         }
@@ -119,12 +127,12 @@ namespace UTOC.Stream.Emulator
         private Strim GetDummyPak()
         {
             // Assumed to only be FrozenIndex or Fn64BugFix (only Pak versions to have IO Store support)
-            if (PakVersion == PakType.FrozenIndex)
+            if (EngineVersion == EngineVersion.UE_4_25)
             {
-                _logger.Info($"[UtocEmulator] Using Pak Type FrozenIndex");
+                _logger.LogInfo("Using Pak Type FrozenIndex");
                 return new FileStream(Path.Combine(ModDummyPakFilesDirectory, $"FrozenIndex{Constants.PakExtension}"), FileMode.Open);
             }
-            _logger.Info($"[UtocEmulator] Using Pak Type Fn64BugFix");
+            _logger.LogInfo("Using Pak Type Fn64BugFix");
             return new FileStream(Path.Combine(ModDummyPakFilesDirectory, $"Fn64BugFix{Constants.PakExtension}"), FileMode.Open);
         }
 
@@ -136,8 +144,8 @@ namespace UTOC.Stream.Emulator
             stream = GetDummyPak();
             _pathToStream[path] = stream;
             emulated = new EmulatedFile<Strim>(stream);
-            _logger.Info($"[UtocEmulator] Created Emulated IO Store PAK with Path {path}");
-            if (DumpFiles)
+            _logger.LogInfo($"Created Emulated IO Store PAK with Path {path}");
+            if (_configuration.DumpFiles)
                 DumpFile(path, stream);
             return true;
         }
@@ -155,9 +163,8 @@ namespace UTOC.Stream.Emulator
         public bool TryCreateEmulatedFile(IntPtr handle, string srcDataPath, string outputPath, string route, ref IEmulatedFile? emulated, out Strim? stream)
         {
             stream = null;
-            if (TocVersion == null) return false; // This game's version is too old for IO Store, quit here
+            if (!HasUtocs) return false; // This game's version is too old for IO Store, quit here
             if (srcDataPath.Contains(Constants.DumpFolderParent)) return false;
-            string? ext = Path.GetExtension(srcDataPath);
             if (srcDataPath.EndsWith(Constants.UtocExtension, StringComparison.OrdinalIgnoreCase))
             {
                 if (TryCreateIoStoreTOC(srcDataPath, ref emulated!, out _)) return true;
@@ -177,54 +184,69 @@ namespace UTOC.Stream.Emulator
         {
             var filePath = Path.GetFullPath($"{Path.Combine(Constants.DumpFolderParent, Constants.DumpFolderToc, Path.GetFileName(filepath))}");
             Directory.CreateDirectory(Path.Combine(Constants.DumpFolderParent, Constants.DumpFolderToc));
-            _logger.Info($"[UtocEmulator] Dumping {filepath}");
+            _logger.LogInfo($"Dumping {filepath}");
             using var fileStream = new FileStream(filePath, FileMode.Create);
             stream.CopyTo(fileStream);
-            _logger.Info($"[UtocEmulator] Written To {filePath}");
+            _logger.LogInfo($"Written To {filePath}");
         }
 
-        private void WriteContainer(string path, Strim stream)
+        private void AddFromFolderInner(string mod_path)
         {
-            using var fileStream = new FileStream(path, FileMode.Create);
-            stream.CopyTo(fileStream);
-            _logger.Info($"[UtocEmulator] Container Written To {path}");
+            var mod_path_unicode = Marshal.StringToHGlobalUni(mod_path);
+            if (_configuration.UseNewEmulator)
+                RustApiNew.add_from_folders(mod_path_unicode, EngineVersion);
+            else
+            {
+                RustApi.AddFromFolders(mod_path_unicode, mod_path.Length);
+                Marshal.FreeHGlobal(mod_path_unicode);   
+            }
         }
 
         public void OnModLoading(string dir_path)
-        {
-            var mod_path = Path.Combine(dir_path, "UTOC", "UnrealEssentials.utoc");
-            nint mod_path_unicode = Marshal.StringToHGlobalUni(mod_path);
-            RustApi.AddFromFolders(mod_path_unicode, mod_path.Length);
-            Marshal.FreeHGlobal(mod_path_unicode);
-        }
+            => AddFromFolderInner(Path.Combine(dir_path, "UTOC", "UnrealEssentials.utoc"));
 
         public void AddFromFolder(string dir_path)
-        {
-            nint mod_path_unicode = Marshal.StringToHGlobalUni(dir_path);
-            RustApi.AddFromFolders(mod_path_unicode, dir_path.Length);
-            Marshal.FreeHGlobal(mod_path_unicode);
-        }
+            => AddFromFolderInner(dir_path);
 
         public void AddFromFolderWithMount(string dir_path, string virtual_path)
         {
-            nint mod_path_unicode = Marshal.StringToHGlobalUni(dir_path);
-            nint virtual_path_unicode = Marshal.StringToHGlobalUni(virtual_path);
-            RustApi.AddFromFoldersWithMount(mod_path_unicode, dir_path.Length, virtual_path_unicode, virtual_path.Length);
-            Marshal.FreeHGlobal(mod_path_unicode );
-            Marshal.FreeHGlobal(virtual_path_unicode);
+            var mod_path_unicode = Marshal.StringToHGlobalUni(dir_path);
+            var virtual_path_unicode = Marshal.StringToHGlobalUni(virtual_path);
+            if (_configuration.UseNewEmulator)
+                RustApiNew.add_from_folders_with_mount(mod_path_unicode, virtual_path_unicode, EngineVersion);
+            else
+            {
+                RustApi.AddFromFoldersWithMount(mod_path_unicode, dir_path.Length, virtual_path_unicode, virtual_path.Length);
+                Marshal.FreeHGlobal(mod_path_unicode);
+                Marshal.FreeHGlobal(virtual_path_unicode);
+            }
         }
 
-        public void MakeFilesOnInit() // from base Unreal Essentials path
+        private void MakeFilesOnInitOld()
         {
-            if (TocVersion == null)
+            var PakVersion = EngineVersion switch
             {
-                _logger.Info($"[UtocEmulator] Toc Version was not provided, stopping here");
-                return;
-            }
+                EngineVersion.UE_4_25 => PakType.FrozenIndex,
+                EngineVersion.UE_4_26 => PakType.Fn64BugFix,
+                EngineVersion.UE_4_27 => PakType.Fn64BugFix,
+                _ => PakType.NoTimestamps
+            };
+            TocType? TocVersion = EngineVersion switch
+            {
+                EngineVersion.UE_4_25 => TocType.Initial,
+                EngineVersion.UE_4_26 => TocType.DirectoryIndex,
+                EngineVersion.UE_4_27 => TocType.PartitionSize,
+                _ => null
+            };
             if (PakVersion != PakType.FrozenIndex && PakVersion != PakType.Fn64BugFix)
             {
-                _logger.Info($"[UtocEmulator] Pak version {PakVersion} is too old, stopping here");
+                _logger.LogInfo($"Pak version {PakVersion} is too old, stopping here");
                 return;
+            }
+            if (TocVersion == null)
+            {
+                _logger.LogInfo("TocVesrion unavailable, stopping here");
+                return;               
             }
             nint tocLength = 0;
             nint tocData = 0;
@@ -240,12 +262,12 @@ namespace UTOC.Stream.Emulator
             Marshal.FreeHGlobal(mod_path_unicode);
             if (!result)
             {
-                _logger.Info($"[UtocEmulator] An error occurred while making IO Store data");
+                _logger.LogError("An error occurred while making IO Store data");
                 return;
             }
             if(blockCount == 0)
             {
-                _logger.Info($"[UtocEmulator] No IO store files found, not creating emulated file.");
+                _logger.LogInfo("No IO store files found, not creating emulated file.");
                 return;
             }
             unsafe
@@ -255,9 +277,49 @@ namespace UTOC.Stream.Emulator
             }
             AddPakFolderCb(ModTargetFilesDirectory);
         }
+
+        private unsafe void MakeFilesOnInitNew()
+        {
+            var toc = (Array<byte>*)NativeMemory.AlignedAlloc((nuint)(3 * sizeof(Array<byte>)), (nuint)sizeof(nint));
+            var blocks = (Array<PartitionBlock>*)(toc + 1);
+            var header = toc + 2;
+            var result = RustApiNew.build_toc(
+                    // Marshal.StringToHGlobalUni(ModTargetFilesDirectory),
+                    EngineVersion, toc, blocks, header);
+            if (!result)
+            {
+                _logger.LogError("An error occurred while making IO Store data");
+                return;
+            }
+
+            if (blocks->Len == 0)
+            {
+                _logger.LogInfo("No IO store files found, not creating emulated file.");
+                return;   
+            }
+            TocStream = new UnmanagedMemoryStream(toc->Entries, toc->Len);
+            CasStream = new MultiStream(CreateContainerStream((nint)blocks->Entries, (int)blocks->Len,
+                (nint)header->Entries, (int)header->Len));
+            AddPakFolderCb(ModTargetFilesDirectory);
+        }
+
+        public void MakeFilesOnInit() // from base Unreal Essentials path
+        {
+            if (!HasUtocs)
+            {
+                _logger.LogInfo("Game is not using IO Store, stopping here");
+                return;
+            }
+
+            if (_configuration.UseNewEmulator)
+                MakeFilesOnInitNew();
+            else
+                MakeFilesOnInitOld();
+        }
         public void OnLoaderInit()
         {
-            RustApi.PrintAssetCollectorResults();
+            if (!_configuration.UseNewEmulator)
+                RustApi.PrintAssetCollectorResults();
             MakeFilesOnInit();
         }
     }

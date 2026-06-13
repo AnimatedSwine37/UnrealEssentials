@@ -14,8 +14,13 @@ namespace UTOC.Stream.Emulator.Configuration
 
         [DisplayName("Dump Emulated IO Store Files")]
         [Description("Creates a dump of emulated IO Store files (.utoc + .ucas) as they are written.")]
-        [DefaultValue(LogSeverity.Information)]
+        [DefaultValue(false)]
         public bool DumpFiles { get; set; } = false;
+        
+        [DisplayName("Use New Emulator")]
+        [Description("Uses the new UTOC emulator with UE5 support")]
+        [DefaultValue(false)]
+        public bool UseNewEmulator { get; set; } = false;
     }
 
     /// <summary>

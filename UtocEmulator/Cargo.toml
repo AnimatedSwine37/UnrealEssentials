@@ -1,7 +1,8 @@
 [workspace]
 
 members = [
-    "fileemu-utoc-stream-emulator"
+    "fileemu-utoc-stream-emulator",
+    "utoc-emulator"
 ]
 resolver = "2"
 

@@ -24,8 +24,11 @@ public enum ObjectCommandExecutorType
 
 public class Properties
 {
+    // used by UTOC Emulator 1.x
     public TocType? TocVersion { get; set; } = null;
     public PakType PakVersion { get; set; } = PakType.Fn64BugFix;
+    // used by UTOC Emulator 2.x
+    public EngineVersion EngineVersion { get; set; } = EngineVersion.UE_4_25;
     public StartLoadingDelegateType StartLoadDelegate { get; set; } = StartLoadingDelegateType.NoArgs;
     public bool AllowExecuteCommands { get; set; } = false;
     public ObjectCommandExecutorType CommandExecutorType { get; set; } = ObjectCommandExecutorType.GlobalOnly;
@@ -79,9 +82,9 @@ public class Signatures
 
 public class GameRegistry
 {
-    internal static string[] DistributionTypes = ["Win64", "WinGDK"];
+    internal static readonly string[] DistributionTypes = ["Win64", "WinGDK"];
 
-    internal static string DistVersion = "<DistVersion>";
+    internal static readonly string DistVersion = "<DistVersion>";
 
     public Dictionary<string, Properties> ExecutableName { get; } = new();
     public Dictionary<string, Properties> ExecutableNameStartsWith { get; } = new();
@@ -153,40 +156,9 @@ public class SignaturePropertyFactory
         var root = reader.Documents[0].RootNode.Cast<YamlMappingNode>() 
                    ?? throw new Exception("Expected a mapping at the top-level");
         var properties = new Properties();
-        var branchName = string.Empty;
-        foreach (var child in root.Children)
-        {
-            var key = child.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
-            switch (key)
-            {
-                case "VersionIdentifier":
-                    branchName = HandleScalar("VersionIdentifier", child.Value);
-                    break;
-                case "PakVersion":
-                    properties.PakVersion = HandlePakVersion(child.Value);
-                    break;
-                case "StartLoadDelegate":
-                    properties.StartLoadDelegate = HandleStartLoadDelegate(child.Value);
-                    break;
-                case "Signatures":
-                    SetSignatures(properties, child.Value);
-                    break;
-                default:
-                    throw new Exception($"Unrecognised property {key}");
-            }
-        }
-        return (branchName, properties);
-    }
-    
-    private void ParseEngineYaml(string filePath)
-    {
-        var Value = File.ReadAllText(filePath);
-        var reader = new YamlStream();
-        reader.Load(new StringReader(Value));
-        var root = reader.Documents[0].RootNode.Cast<YamlMappingNode>() 
-                   ?? throw new Exception("Expected a mapping at the top-level");
-        var properties = new Properties();
-        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        var filename = Path.GetFileNameWithoutExtension(filePath);
+        properties.EngineVersion = Enum.TryParse<EngineVersion>(filename, out var engineVersion)
+            ? engineVersion : throw new Exception($"Unrecognised engine version {filename}, must be defined in EngineVersion enum!");
         var branchName = string.Empty;
         foreach (var child in root.Children)
         {
@@ -212,6 +184,13 @@ public class SignaturePropertyFactory
                     throw new Exception($"Unrecognised property {key}");
             }
         }
+        return (branchName, properties);
+    }
+    
+    private void ParseEngineYaml(string filePath)
+    {
+        var (branchName, properties) = ParseEngineYamlStatic(filePath);
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
         EngineVersions.Add(branchName, properties);
         FileToBranchName.Add(fileName, branchName);
     }
