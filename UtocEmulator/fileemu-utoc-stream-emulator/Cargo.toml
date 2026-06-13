@@ -6,7 +6,6 @@ authors = [ "Rirurin" ]
 description = "Simulates Unreal Engine IO Store files. Allows mods to add or replace existing files using files on disk."
 repository = "https://github.com/AnimatedSwine37/UnrealEssentials/"
 license = "GPL-3.0"
-panic = "immediate-abort"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

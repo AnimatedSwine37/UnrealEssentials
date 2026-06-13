@@ -2,4 +2,5 @@ VersionIdentifier: "++UE5+Release-5.6"
 TocVersion: "ReplaceIoChunkHashWithIoHash"
 PakVersion: "Fn64BugFix"
 StartLoadDelegate: "DescAddInstancingContext"
+CommandExecutorType: "AddRuntime"
 Signatures:

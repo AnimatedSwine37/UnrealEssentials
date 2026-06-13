@@ -1,6 +1,7 @@
 VersionIdentifier: "++UE4+Release-4.25"
 TocVersion: "Initial"
 PakVersion: "FrozenIndex"
+CommandExecutorType: "GlobalOnly"
 Signatures:
     GetPakSigningKeys: 
         signatures: "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??"

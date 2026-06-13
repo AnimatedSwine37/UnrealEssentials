@@ -2,6 +2,7 @@ VersionIdentifier: "++UE5+Release-5.1"
 TocVersion: "PerfectHash"
 PakVersion: "Fn64BugFix"
 StartLoadDelegate: "PackageNodeArray"
+CommandExecutorType: "GlobalOnly"
 Signatures:
     GetPakSigningKeys: 
         signatures: "E8 ?? ?? ?? ?? 48 8B F8 39 70 ??"

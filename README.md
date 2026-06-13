@@ -14,7 +14,7 @@ A mod for [Reloaded-II](https://reloaded-project.github.io/Reloaded-II/) that ma
 - Automatic conversion of cooked uassets to IO Store uassets (see note in [Loose Files](#loose-files))
 
 ## Supported Games
-Below is a list of games that are known to work with Unreal Essentials. Just because a game isn't on the list doesn't mean it doesn't work, generally games using Unreal Engine versions 4.25 to 4.27 should work.
+Below is a list of games that are known to work with Unreal Essentials. Just because a game isn't on the list doesn't mean it doesn't work, generally UE 4 games from 4.25-4.27 and UE 5 games will work.
 
 If you know of a game that doesn't work you can create an [issue](https://github.com/AnimatedSwine37/UnrealEssentials/issues) and support might be added for it.
 

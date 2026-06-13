@@ -117,6 +117,23 @@ public class SignaturePropertyFactory
         var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for StartLoadDelegate must be a string");
         return Enum.TryParse<StartLoadingDelegateType>(str, out var Value) ? Value : throw new Exception($"Value \"{str}\" is not in StartLoadingDelegateType");
     }
+    
+    private static bool HandleAllowExecuteCommands(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for AllowExecuteCommands must be a string");
+        return str.ToLower() switch
+        {
+            "true" => true,
+            "false" => false,
+            _ => throw new Exception($"Value \"{str}\" is not true or false")
+        };
+    }
+    
+    private static ObjectCommandExecutorType HandleCommandExecutorType(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for CommandExecutorType must be a string");
+        return Enum.TryParse<ObjectCommandExecutorType>(str, out var Value) ? Value : throw new Exception($"Value \"{str}\" is not in CommandExecutorType");
+    }
 
     private static void TryGetSignature(string key, Dictionary<string, List<Candidate>> signatures, Action<List<Candidate>> callback)
     {
@@ -176,6 +193,12 @@ public class SignaturePropertyFactory
                     break;
                 case "StartLoadDelegate":
                     properties.StartLoadDelegate = HandleStartLoadDelegate(child.Value);
+                    break;
+                case "AllowExecuteCommands":
+                    properties.AllowExecuteCommands = HandleAllowExecuteCommands(child.Value);
+                    break;
+                case "CommandExecutorType":
+                    properties.CommandExecutorType = HandleCommandExecutorType(child.Value);
                     break;
                 case "Signatures":
                     SetSignatures(properties, child.Value);

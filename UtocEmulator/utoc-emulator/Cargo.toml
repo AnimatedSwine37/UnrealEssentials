@@ -1,8 +1,11 @@
 [package]
 name = "utoc-emulator"
-authors = ["Rirurin"]
 version = "2.0.0"
+authors = [ "Rirurin" ]
+description = "Simulates Unreal Engine IO Store files. Allows mods to add or replace existing files using files on disk."
+repository = "https://github.com/AnimatedSwine37/UnrealEssentials/"
 edition = "2024"
+license = "GPL-3.0"
 
 [dependencies]
 anyhow = "1.0.100"

@@ -1,9 +1,8 @@
+pub(crate) mod assets;
+pub(crate) mod factory;
 pub(crate) mod ffi;
 pub(crate) mod logger;
 pub(crate) mod metadata;
-pub(crate) mod assets;
-pub(crate) mod factory;
-pub(crate) mod progress;
 
 use std::error::Error;
 

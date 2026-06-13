@@ -1,6 +1,7 @@
 VersionIdentifier: "++UE4+Release-4.26"
 TocVersion: "DirectoryIndex"
 PakVersion: "Fn64BugFix"
+CommandExecutorType: "GlobalOnly"
 Signatures:
     GetPakSigningKeys: 
         signatures: "E8 ?? ?? ?? ?? 48 8B D8 39 78 ?? 0F 84 ?? ?? ?? ??"

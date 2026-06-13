@@ -2,6 +2,7 @@ VersionIdentifier: "++UE5+Release-5.4"
 TocVersion: "OnDemandMetaData"
 PakVersion: "Fn64BugFix"
 StartLoadDelegate: "DescAddInstancingContext"
+CommandExecutorType: "AddRuntime"
 Signatures:
     GetPakSigningKeys: 
         signatures: "E8 ?? ?? ?? ?? 48 8B F8 39 70 ??"
