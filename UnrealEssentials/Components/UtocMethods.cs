@@ -17,6 +17,7 @@ internal class UtocMethods
     private readonly MultiHook<FAsyncPackage2_StartLoading2> _startLoading2;
     private readonly MultiHook<FAsyncPackage2_StartLoading3> _startLoading3;
     private readonly MultiHook<FAsyncPackage2_StartLoading4> _startLoading4;
+    // private readonly MultiHook<FAsyncPackage2_StartLoading5> _startLoading5;
 
     private const string PackageStartLoading = "FAsyncPackage2::StartLoading";
 
@@ -46,6 +47,11 @@ internal class UtocMethods
             case StartLoadingDelegateType.DescAddInstancingContext:
                 _startLoading4 = new(PackageStartLoading, context.Properties.Signatures.FAsyncPackage2_StartLoading, FAsyncPackage2_StartLoading4Impl);
                 break;
+            /*
+            case StartLoadingDelegateType.Type5:
+                _startLoading5 = new(PackageStartLoading, context.Properties.Signatures.FAsyncPackage2_StartLoading, FAsyncPackage2_StartLoading5Impl);
+                break;
+            */
         }
     }
     
