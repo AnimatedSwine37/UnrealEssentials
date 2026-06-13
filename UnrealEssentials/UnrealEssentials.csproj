@@ -50,11 +50,11 @@
     <PackageReference Include="Reloaded.Mod.Interfaces" Version="2.4.0" ExcludeAssets="runtime" />
     <PackageReference Include="Reloaded.SharedLib.Hooks" Version="1.9.0" />
 	<PackageReference Include="Reloaded.Memory.SigScan.ReloadedII.Interfaces" Version="1.2.0" />
+	<PackageReference Include="riri.yamlscans" Version="1.0.0" />
 	<PackageReference Include="YamlDotNet" Version="18.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\riri.yamlscans\riri.yamlscans\riri.yamlscans.csproj" />
     <ProjectReference Include="..\UnrealEssentials.Interfaces\UnrealEssentials.Interfaces.csproj" />
     <ProjectReference Include="..\UTOC.Stream.Emulator.Interfaces\UTOC.Stream.Emulator.Interfaces.csproj" />
   </ItemGroup>
