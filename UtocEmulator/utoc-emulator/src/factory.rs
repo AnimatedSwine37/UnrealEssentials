@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Cursor, Read, Seek, SeekFrom};
 use anyhow::Context;
 use byteorder::ReadBytesExt;
-use console::Term;
+use console::{Color, Term};
 use indicatif::{ProgressBar, ProgressStyle};
 use retoc::{lower_utf16_cityhash, EIoChunkType, EIoStoreTocVersion, FIoChunkHash, FIoChunkId, FIoContainerId, FIoOffsetAndLength, FIoStoreTocCompressedBlockEntry, FIoStoreTocEntryMeta, FIoStoreTocEntryMetaFlags, FPackageId, Toc, UEPath, UEPathBuf};
 use retoc::container_header::{EIoContainerHeaderVersion, FIoContainerHeader, StoreEntry};
@@ -333,7 +333,7 @@ impl IoStoreFactory {
                     &mut writer, chunk_id, asset_name, asset_entry)?,
                 _ => ()
             };
-            bar.set_message(asset_name.clone());
+            bar.set_message(asset_name_tr.to_owned());
             bar.set_position(bar.position() + 1);
         }
         writer.finalize(toc, blocks, header)?;

@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Metadata.Ecma335;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Reloaded.Memory.Sigscan.Definitions;
 using Reloaded.Mod.Interfaces;
@@ -21,78 +22,102 @@ internal static class ContextBuilder
         var modPath = new DirectoryInfo(modFolder).Parent!.FullName;
         var propFactory = new SignaturePropertyFactory(Path.Combine(modFolder, "Signatures"));
         if (!TryGetProperties(_modLoader, propFactory, out var props)) return null;
+        Log($"Engine version is {props.EngineVersion.ToBranchVersion()}");
         return new(Native.FPakSigningKeys.NewBlank(), modPath, CheckIoStore(props), props, _modLoader);   
     }
     
-    private static bool TryGetSignatureFromProductName(SignaturePropertyFactory factory, ProcessModule mainModule, out Properties? sigs)
+    private const string RootBlock = "\\";
+    private const string TranslateBlock = "\\VarFileInfo\\Translation";
+
+    private static bool GetFileVersionInfo(nint winVerDll, ProcessModule mainModule, out byte[] infoBuffer)
     {
-        // Dynamically load DLL needed for methods to get executable resource metadata from
-        sigs = null;
-        var winVerDll = Imports.LoadLibraryA("Api-ms-win-core-version-l1-1-0.dll");
-        if (winVerDll == null)
-        {
-            return false;
-        }
+        infoBuffer = [];
         unsafe
         {
-            var getFileVersionInfoSizeA =
-                (delegate* unmanaged[Stdcall]<string, uint*, uint>)Imports.GetProcAddress(winVerDll,
-                    "GetFileVersionInfoSizeA");
-            if (getFileVersionInfoSizeA == null)
-            {
-                return false;
-            }
-            var infoSize = getFileVersionInfoSizeA(mainModule!.FileName, null);
-            var infoBuffer = new byte[infoSize];
-            var getFileVersionInfoA =
-                (delegate* unmanaged[Stdcall]<string, uint, uint, byte*, bool>)Imports.GetProcAddress(winVerDll,
-                    "GetFileVersionInfoA");
-            if (getFileVersionInfoA == null)
-            {
-                return false;
-            }
+            var getFileVersionInfoSizeA = (delegate* unmanaged[Stdcall]<string, uint*, uint>)Imports.GetProcAddress(
+                winVerDll, "GetFileVersionInfoSizeA");
+            if (getFileVersionInfoSizeA == null) return false;
+            var infoSize = getFileVersionInfoSizeA(mainModule.FileName, null);
+            infoBuffer = new byte[infoSize];
+            var getFileVersionInfoA = (delegate* unmanaged[Stdcall]<string, uint, uint, byte*, bool>)Imports.GetProcAddress(
+                winVerDll, "GetFileVersionInfoA");
+            if (getFileVersionInfoA == null) return false;
+            fixed (byte* pInfoBuffer = infoBuffer)
+                if (!getFileVersionInfoA(mainModule.FileName, 0, infoSize, pInfoBuffer))
+                    return false;
+            return true;
+        }
+    }
+
+    private delegate bool TryGetSignatureFromPropertyCallback(string nameDesc, 
+        SignaturePropertyFactory factory, out Properties? sigs);
+    
+    private static bool TryGetSignatureFromStringProperty(nint winVerDll, SignaturePropertyFactory factory, 
+        byte[] infoBuffer, string property, TryGetSignatureFromPropertyCallback callback, out Properties? sigs)
+    {
+        sigs = null;
+        unsafe
+        {
             fixed (byte* pInfoBuffer = infoBuffer)
             {
-                if (!getFileVersionInfoA(mainModule!.FileName, 0, infoSize, pInfoBuffer))
-                {
-                    return false;
-                }
                 // https://learn.microsoft.com/en-us/windows/win32/api/winver/nf-winver-verqueryvaluea
-                var verQueryValueA =
-                    (delegate* unmanaged[Stdcall]<byte*, string, nint*, uint*, bool>)Imports.GetProcAddress(winVerDll,
-                        "VerQueryValueA");
-                if (verQueryValueA == null)
-                {
-                    return false;
-                }
-
+                var verQueryValueA = (delegate* unmanaged[Stdcall]<byte*, string, nint*, uint*, bool>)
+                    Imports.GetProcAddress(winVerDll, "VerQueryValueA");
+                if (verQueryValueA == null) return false;
                 // Get language + codepage
                 LanguageCodePage* translate = null;
                 uint translateSize = 0;
-                if (!verQueryValueA(pInfoBuffer, "\\VarFileInfo\\Translation", (nint*)(&translate), &translateSize))
-                {
-                    return false;
-                }
-
+                if (!verQueryValueA(pInfoBuffer, TranslateBlock, (nint*)(&translate), &translateSize)) return false;
                 for (var i = 0; i < translateSize / sizeof(LanguageCodePage); i++)
                 {
                     // Check FileDescription entry for StringFileInfo
-                    var translateEntry = (translate + i);
+                    var translateEntry = translate + i;
                     char* fileDescription = null;
                     uint fileDescBytes = 0;
                     // VerQueryValue for strings includes null terminator in length
                     if (!verQueryValueA(pInfoBuffer,
-                            $"\\StringFileInfo\\{translateEntry->wLanguage:x04}{translateEntry->wCodePage:x04}\\ProductName", 
+                            $"\\StringFileInfo\\{translateEntry->wLanguage:x04}{translateEntry->wCodePage:x04}\\{property}",
                             (nint*)(&fileDescription), &fileDescBytes))
-                    {
                         return false;
-                    }
-                    if (factory.GameRegistry.ProductName.TryGetValue(Marshal.PtrToStringAnsi((nint)fileDescription, (int)fileDescBytes - 1), 
-                            out var sigsMaybe))
+                    var nameDesc = Marshal.PtrToStringAnsi((nint)fileDescription, (int)fileDescBytes - 1);
+                    if (callback(nameDesc, factory, out var sigsMaybe))
                     {
                         sigs = sigsMaybe;
                         return true;
                     }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static bool TryGetSignatureFromProductNameCallback(string nameDesc, 
+        SignaturePropertyFactory factory, out Properties? sigs)
+        => factory.GameRegistry.ProductName.TryGetValue(nameDesc, out sigs);
+
+    private static bool TryGetSignatureFromFileVersion(nint winVerDll, SignaturePropertyFactory factory,
+        byte[] infoBuffer, out Properties? sigs)
+    {
+        sigs = null;
+        unsafe
+        {
+            fixed (byte* pInfoBuffer = infoBuffer)
+            {
+                // https://learn.microsoft.com/en-us/windows/win32/api/winver/nf-winver-verqueryvaluea
+                var verQueryValueA = (delegate* unmanaged[Stdcall]<byte*, string, nint*, uint*, bool>)
+                    Imports.GetProcAddress(winVerDll, "VerQueryValueA");
+                if (verQueryValueA == null) return false;
+                FixedFileInfo* root = null;
+                uint rootSize = 0;
+                if (!verQueryValueA(pInfoBuffer, RootBlock, (nint*)(&root), &rootSize) 
+                    || root->dwSignature != 0xfeef04bd) return false;
+                var major = root->dwFileVersionMS >> 0x10;
+                var minor = root->dwFileVersionMS & 0xffff;
+                var engineVer = $"++UE{major}+Release-{major}.{minor}";
+                if (factory.EngineVersions.TryGetValue(engineVer, out var sigsMaybe))
+                {
+                    sigs = sigsMaybe;
+                    return true;
                 }
             }
         }
@@ -115,8 +140,21 @@ internal static class ContextBuilder
         props = new();
         // Try and find based on file name
         if (factory.GameRegistry.ExecutableName.TryGetValue(fileName, out props)) return true;
-        // Try and find based on the executable's file description
-        if (TryGetSignatureFromProductName(factory, mainModule!, out props)) return true;
+        // Dynamically load DLL needed for methods to get executable resource metadata from
+        var winVerDll = Imports.LoadLibraryA("Api-ms-win-core-version-l1-1-0.dll");
+        if (winVerDll != nint.Zero && GetFileVersionInfo(winVerDll, mainModule, out var infoBuffer))
+        {
+            // Try and find based on the executable's file description
+            if (TryGetSignatureFromStringProperty(winVerDll, factory, infoBuffer,
+                    "ProductName", TryGetSignatureFromProductNameCallback, out props)) return true;
+            // Try and find based on the file version of the executable (this is more common in UE5 games)
+            if (TryGetSignatureFromFileVersion(winVerDll, factory, infoBuffer, out props)) return true;
+        }
+        else
+        {
+            LogError("Could not locate the DLL \"Api-ms-win-core-version-l1-1-0.dll\" \n" +
+                     "We won't be able to determine the engine version using info from the executable properties!\n");   
+        }
         // Try and find based on branch name
         _modLoader.GetController<IScannerFactory>().TryGetTarget(out var scannerFactory);
         var scanner = scannerFactory!.CreateScanner(CurrentProcess, mainModule);
@@ -130,56 +168,10 @@ internal static class ContextBuilder
             return false;
         }
         var branch = Marshal.PtrToStringUni(results[0].Offset + BaseAddress)!;
-        Log($"Unreal Engine branch is {branch}");
         if (factory.EngineVersions.TryGetValue(branch, out props)) return true;
         LogError($"Unable to find signatures for Unreal Engine branch {branch}, Unreal Essentials will not work!\n" +
                  "Please report this at github.com/AnimatedSwine37/UnrealEssentials.");
         return false;
-        /*
-        var VersionSigs = Assembly.GetExecutingAssembly().GetTypes().Where(x =>
-            x.CustomAttributes.Any(a => a.AttributeType == typeof(SignatureAttribute)))
-            .Select(x => (
-                    // get the string value of VersionIdentifier from the first attribute of name "SignatureAttribute"
-                    x.CustomAttributes.Where(a => a.AttributeType == typeof(SignatureAttribute)).Select(a => a.NamedArguments.Where(b => b.MemberName == "VersionIdentifier").Select(b => (string)b.TypedValue.Value).First()).First(),
-                    // create an instance of the target class, then get it's signature list
-                    ((ISignatureList)x.GetConstructor( BindingFlags.Instance | BindingFlags.Public, null, CallingConventions.HasThis, [], null).Invoke([])).GetSignatures()
-                )
-            ).ToDictionary(x => x.Item1, x => x.Item2);
-        // Try and find based on file name
-        if (VersionSigs.TryGetValue(fileName, out sigs))
-            return true;
-
-        // Try and find based on the executable's file description
-        if (TryGetSignatureFromFileDescription(VersionSigs, mainModule!, out var sigsMaybe))
-        {
-            sigs = sigsMaybe.Value;
-            return true;
-        }
-
-        _modLoader.GetController<IScannerFactory>().TryGetTarget(out var scannerFactory);
-        var scanner = scannerFactory!.CreateScanner(CurrentProcess, mainModule);
-
-        // Try and find based on branch name
-        var results = scanner.FindPatterns(BranchNames).Where(x => x.Found).ToList();
-        if (results.Count == 0)
-        {
-            LogError($"Unable to find Unreal Engine version number, Unreal Essentials will not work!\n" +
-                     $"If this game does not use Unreal Engine please disable Unreal Essentials.\n" +
-                     $"If you are sure this is an Unreal Engine game then please report this at github.com/AnimatedSwine37/UnrealEssentials " +
-                     $"so support can be added.");
-            return false;
-        }
-        string branch = Marshal.PtrToStringUni(results[0].Offset + BaseAddress)!;
-        Log($"Unreal Engine branch is {branch}");
-        if (!VersionSigs.TryGetValue(branch, out sigs))
-        {
-            LogError($"Unable to find signatures for Unreal Engine branch {branch}, Unreal Essentials will not work!\n" +
-                "Please report this at github.com/AnimatedSwine37/UnrealEssentials.");
-            return false;
-        }
-
-        return true;
-        */
     }
     
     private static bool CheckIoStore(Properties props)
