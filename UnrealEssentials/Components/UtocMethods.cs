@@ -17,7 +17,8 @@ internal class UtocMethods
     private readonly MultiHook<FAsyncPackage2_StartLoading2> _startLoading2;
     private readonly MultiHook<FAsyncPackage2_StartLoading3> _startLoading3;
     private readonly MultiHook<FAsyncPackage2_StartLoading4> _startLoading4;
-    // private readonly MultiHook<FAsyncPackage2_StartLoading5> _startLoading5;
+    private readonly MultiHook<FAsyncPackage2_StartLoading5> _startLoading5;
+    private readonly MultiHook<FAsyncPackage2_StartLoading6> _startLoading6;
 
     private const string PackageStartLoading = "FAsyncPackage2::StartLoading";
 
@@ -47,11 +48,12 @@ internal class UtocMethods
             case StartLoadingDelegateType.DescAddInstancingContext:
                 _startLoading4 = new(PackageStartLoading, context.Properties.Signatures.FAsyncPackage2_StartLoading, FAsyncPackage2_StartLoading4Impl);
                 break;
-            /*
-            case StartLoadingDelegateType.Type5:
+            case StartLoadingDelegateType.EnableLinkerLoadSupport:
                 _startLoading5 = new(PackageStartLoading, context.Properties.Signatures.FAsyncPackage2_StartLoading, FAsyncPackage2_StartLoading5Impl);
                 break;
-            */
+            case StartLoadingDelegateType.AsyncPackageInheritsRefCount:
+                _startLoading6 = new(PackageStartLoading, context.Properties.Signatures.FAsyncPackage2_StartLoading, FAsyncPackage2_StartLoading6Impl);
+                break;
         }
     }
     
@@ -119,5 +121,27 @@ internal class UtocMethods
             Log($"StartLoading: {DiskName}");    
         }
         _startLoading4.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
+    }
+    
+    internal unsafe delegate void FAsyncPackage2_StartLoading5(Native.FAsyncPackage2_UE5_6* Self, nint ThreadState, nint IoBatch);
+    private unsafe void FAsyncPackage2_StartLoading5Impl(Native.FAsyncPackage2_UE5_6* Self, nint ThreadState, nint IoBatch) 
+    {
+        var DiskName = Self->PackagePathToLoad;
+        if (!DiskName.IsNone() && _config.FileAccessLog)
+        {
+            Log($"StartLoading: {DiskName}");    
+        }
+        _startLoading5.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
+    }
+    
+    internal unsafe delegate void FAsyncPackage2_StartLoading6(Native.FAsyncPackage2_UE5_7* Self, nint ThreadState, nint IoBatch);
+    private unsafe void FAsyncPackage2_StartLoading6Impl(Native.FAsyncPackage2_UE5_7* Self, nint ThreadState, nint IoBatch) 
+    {
+        var DiskName = Self->PackagePathToLoad;
+        if (!DiskName.IsNone() && _config.FileAccessLog)
+        {
+            Log($"StartLoading: {DiskName}");    
+        }
+        _startLoading6.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
     }
 }

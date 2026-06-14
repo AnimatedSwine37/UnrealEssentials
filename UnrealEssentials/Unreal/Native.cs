@@ -85,4 +85,18 @@ internal unsafe class Native
         // offset: Self->Desc.PackageIdToLoad + 0x10
         [FieldOffset(0x110)] internal UnrealName.FName PackagePathToLoad;
     }
+    
+    [StructLayout(LayoutKind.Explicit)]
+    internal struct FAsyncPackage2_UE5_6
+    {
+        // offset: Self->Desc.PackageIdToLoad + 0x10
+        [FieldOffset(0x1d0)] internal UnrealName.FName PackagePathToLoad;
+    }
+    
+    [StructLayout(LayoutKind.Explicit)]
+    internal struct FAsyncPackage2_UE5_7
+    {
+        // offset: Self->Desc.PackageIdToLoad + 0x10
+        [FieldOffset(0x218)] internal UnrealName.FName PackagePathToLoad;
+    }
 }

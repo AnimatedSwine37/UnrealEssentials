@@ -12,7 +12,7 @@ public enum StartLoadingDelegateType
     PackageNodeArray, // UE 5.1
     AddThreadState, // UE 5.2-5.3
     DescAddInstancingContext, // UE 5.4-5.5
-    Type5, // UE 5.6
+    EnableLinkerLoadSupport, // UE 5.6
     AsyncPackageInheritsRefCount, // UE 5.7+
 }
 
