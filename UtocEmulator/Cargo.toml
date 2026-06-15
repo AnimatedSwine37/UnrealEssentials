@@ -23,5 +23,5 @@ lto = "fat"
 strip = true  # Automatically strip symbols from the binary.
 panic = "abort"
 
-[patch."https://github.com/rirurin/retoc"]
-retoc = { path = "../../retoc/retoc" }
+# [patch."https://github.com/rirurin/retoc"]
+# retoc = { path = "../../retoc/retoc" }
