@@ -1,5 +1,4 @@
 # globals
-$emulator_parent = "UtocEmulator"
 $emulator_name_csharp = "UTOC.Stream.Emulator"
 $target_triple = "x86_64-pc-windows-msvc"
 $output_name = "fileemu_utoc_stream_emulator"
@@ -22,7 +21,7 @@ function BuildEmulator {
 
     $Output = $Name.Replace("-", "_")
 
-    Push-Location "./$emulator_parent/$Name"
+    Push-Location "./UtocEmulator/$Name"
     $env:RUSTFLAGS = "-C panic=abort -C lto=fat -C embed-bitcode=yes"
     cargo +nightly rustc --lib --release -Z build-std=std,panic_abort --crate-type cdylib --target $target_triple
     # copy required files from target
@@ -34,8 +33,24 @@ function BuildEmulator {
     Pop-Location
 }
 
+function BuildExtractor {
+    param (
+        $Name = ""
+    )
+
+    Push-Location "./UtocEmulator/$Name"
+    $env:RUSTFLAGS = "-C panic=abort -C lto=fat -C embed-bitcode=yes"
+    cargo +nightly rustc --release -Z build-std=std,panic_abort --target $target_triple
+    Push-Location "../target/$target_triple/release"
+    New-Item "$env:RELOADEDIIMODS\UnrealEssentials\Tools" -ItemType Directory -ErrorAction SilentlyContinue
+    Copy-Item "$Name.exe" -Destination "$env:RELOADEDIIMODS\UnrealEssentials\Tools"
+    Pop-Location
+    Pop-Location
+}
+
 BuildCsharpProject "UnrealEssentials"
 BuildCsharpProject "UnrealEssentials.Interfaces"
 BuildEmulator "fileemu-utoc-stream-emulator"
 BuildEmulator "utoc-emulator"
-BuildCsharpProject "$emulator_parent/$emulator_name_csharp" $emulator_name_csharp
+BuildExtractor "utoc-extractor"
+BuildCsharpProject "UtocEmulator/$emulator_name_csharp" $emulator_name_csharp

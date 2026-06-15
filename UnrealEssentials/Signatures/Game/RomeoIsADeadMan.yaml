@@ -1,0 +1,7 @@
+# ROMEO IS A DEAD MAN
+EngineVersion: "UE_5_6"
+ExecutableName: "SevGame-<DistVersion>-Shipping"
+Signatures:
+    GetPakSigningKeys: 
+        signatures: "E8 ?? ?? ?? ?? 39 58 ?? 74 ?? 48 8B 08 48 85 C9 74 ?? 48 8B 01 FF 50 ?? 84 C0 74 ?? 40 F6 C7 04"
+        transforms: GetIndirectAddressShort

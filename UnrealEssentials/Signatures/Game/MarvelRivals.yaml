@@ -1,0 +1,13 @@
+# Marvel Rivals
+EngineVersion: "UE_5_3"
+ExecutableName: "Marvel-<DistVersion>-Shipping"
+Signatures:
+  GetPakFolders: "48 89 74 24 ?? 57 48 83 EC 30 83 79 ?? 00 48 8B FA"
+  PakOpenRead: "4C 8B DC 55 53 41 56 49 8D 6B ?? 48 81 EC D0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??"
+  PakOpenAsyncRead: "40 55 56 57 41 56 41 57 48 8D 6C 24 ?? 48 81 EC C0 00 00 00 48 8B 05 ?? ?? ?? ??"
+  IsNonPakFilenameAllowed: "48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 90 00 00 00 48 8B F1 45 33 C0"
+  FAsyncPackage2_StartLoading: "48 89 5C 24 ?? 55 56 57 48 8D 6C 24 ?? 48 81 EC D0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 48 8B F9 49 8B F0"
+  GFNamePool:
+    signatures: "48 8D 0D ?? ?? ?? ?? 75 ?? E8 ?? ?? ?? ??"
+    transforms: GetIndirectAddressLong
+  

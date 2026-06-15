@@ -1,0 +1,9 @@
+[package]
+name = "utoc-lib"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+retoc = { git = "https://github.com/rirurin/retoc" }
+serde = { version = "1.0.228", features = ["derive"] }

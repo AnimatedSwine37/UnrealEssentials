@@ -22,38 +22,6 @@ hash_meta = ["dep:sha1"]
 [lib]
 crate-type = ["cdylib", "rlib"] # rlib for criterion
 
-# remove these to clean up once ready to ship
-[lints.rust]
-unused_imports = "allow"
-unused_must_use = "allow"
-unused_variables = "allow"
-dead_code = "allow"
-
-[dev-dependencies]
-criterion = "0.5.1"
-
-[target.'cfg(unix)'.dev-dependencies]
-pprof = { version = "0.12", features = ["flamegraph", "criterion"] }
-
-# Dev Build
-[profile.dev]
-panic = "abort"
-
-# Profile Build
-[profile.profile]
-inherits = "release"
-debug = true
-codegen-units = 1
-lto = true
-strip = false  # No stripping!!
-
-# Optimized Release Build
-[profile.release]
-codegen-units = 1
-lto = "fat"
-strip = true  # Automatically strip symbols from the binary.
-panic = "abort"
-
 # Benchmark Stuff
 [[bench]]
 name = "my_benchmark"

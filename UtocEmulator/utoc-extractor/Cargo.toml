@@ -1,19 +1,22 @@
 [package]
-name = "utoc-emulator"
-version = "2.0.0"
+name = "utoc-extractor"
+version = "1.0.0"
 authors = [ "Rirurin" ]
-description = "Simulates Unreal Engine IO Store files. Allows mods to add or replace existing files using files on disk."
+description = "IO Store archive extractor designed to integrate with Unreal Essentials"
 repository = "https://github.com/AnimatedSwine37/UnrealEssentials/"
 edition = "2024"
 license = "GPL-3.0"
 
 [dependencies]
 anyhow = "1.0.100"
-byteorder = "1.5.0"
+clap = { version = "4.6.1", features = ["derive"] }
 console = "0.16.2"
+egui = "0.34.3"
+egui-winit = "0.34.3"
 indicatif = "0.18.4"
 retoc = { git = "https://github.com/rirurin/retoc" }
+rfd = "0.17.2"
 serde = { version = "1.0.228", features = ["derive"] }
-typed-path = "0.12.3"
-walkdir = "2.5.0"
 utoc-lib = { path = "../utoc-lib" }
+walkdir = "2.5.0"
+winit = "0.30.13"

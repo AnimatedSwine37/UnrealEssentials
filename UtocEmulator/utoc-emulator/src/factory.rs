@@ -10,10 +10,12 @@ use retoc::container_header::{EIoContainerHeaderVersion, FIoContainerHeader, Sto
 use retoc::ser::{ReadExt, WriteExt};
 use retoc::version::EngineVersion;
 use retoc::zen::{ExternalPackageDependency, FExportBundleEntry, FExportBundleHeader, FExportMapEntry, FInternalDependencyArc, FZenPackageImportedPackageNamesContainer, FZenPackageSummary, FZenPackageVersioningInfo};
+use utoc_lib::assets::*;
+use utoc_lib::metadata::{UtocMetaImportType, UtocMetadata};
 use crate::ffi::{Array, PartitionBlock};
 use crate::{log, GenericResult};
-use crate::assets::{AssetCollection, AssetEntry, MOUNT_POINT, UASSET_EXTENSION, UBULK_EXTENSION, UMAP_EXTENSION, UPTNL_EXTENSION};
-use crate::metadata::{UtocMetaImportType, UtocMetadata};
+use crate::assets::{AssetCollection, AssetEntry};
+use crate::metadata::MetadataState;
 
 /// UE4 ONLY, for compatibility with Unreal Essentials 1.x.
 /// UE5 uses the same logic for resolving package dependencies that retoc uses
@@ -263,7 +265,7 @@ impl IoStoreFactory {
                 legacy_dependency_arcs: legacy_arcs
             });
         }
-        let metadata = UtocMetadata::instance();
+        let metadata = MetadataState::instance();
         store_entry.imported_packages = match metadata.as_ref().unwrap().get_import_type(package_id) {
             UtocMetaImportType::GraphPackageUnvalidated => LegacyImportIdResolver::from_graph_packages_unvalidated(&package_dependencies),
             UtocMetaImportType::GraphPackageValidated => LegacyImportIdResolver::from_graph_packages_validated(&mut reader, &package_header, &package_dependencies),
@@ -282,7 +284,7 @@ impl IoStoreFactory {
         package_id: FPackageId,
         header_version: EIoContainerHeaderVersion
     ) -> GenericResult<StoreEntry> {
-        if let Some(store) = UtocMetadata::instance().as_ref().unwrap()
+        if let Some(store) = MetadataState::instance().as_ref().unwrap()
             .get_manual_v2_import(package_id) {
             return Ok(store);
         }
@@ -297,7 +299,7 @@ impl IoStoreFactory {
         /// https://github.com/trumank/retoc/blob/master/retoc/src/zen.rs#L871
         let summary = FZenPackageSummary::deserialize(
             &mut reader, header_version)?;
-        let optional_versioning_info: Option<FZenPackageVersioningInfo> =
+        let _: Option<FZenPackageVersioningInfo> = // optional versioning info
             if summary.has_versioning_info != 0 { Some(reader.de()?) } else { None };
         // For UE PackageVersion >= EUnrealEngineObjectUE5Version::VERSE_CELLS is checked here, however at this point we do not know the package file version for the package
         // We do know the container header version though, and VERSE_CELLS is introduced as a part of UE 5.6, which ships with header_version == EIoContainerHeaderVersion::SoftPackageReferencesOffset

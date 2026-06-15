@@ -6,59 +6,10 @@ use std::sync::{Mutex, MutexGuard};
 use retoc::{lower_utf16_cityhash, FPackageId};
 use retoc::version::EngineVersion;
 use walkdir::{DirEntry, WalkDir};
+use utoc_lib::assets::*;
+use utoc_lib::metadata::UtocMetadata;
 use crate::{log, GenericResult};
-use crate::metadata::UtocMetadata;
-
-pub const TARGET_TOC:   &'static str = "UnrealEssentials.utoc";
-pub const TARGET_CAS:   &'static str = "UnrealEssentials.ucas";
-pub const MOUNT_POINT:  &'static str = "../../../";
-
-const ENGINE_DOMAIN: &'static str = "Engine";
-
-pub(crate) const UASSET_EXTENSION: &'static str = "uasset";
-pub(crate) const UBULK_EXTENSION: &'static str = "ubulk";
-pub(crate) const UPTNL_EXTENSION: &'static str = "uptnl";
-pub(crate) const UMAP_EXTENSION: &'static str = "umap";
-
-pub(crate) const UTOCMETA: &'static str = ".utocmeta";
-pub(crate) const UASSETMETA_EXTENSION: &'static str = "uassetmeta";
-
-pub(crate) static ASSET_EXTENSIONS: [&'static str; 5] = [
-    UASSET_EXTENSION,
-    UBULK_EXTENSION,
-    UPTNL_EXTENSION,
-    UMAP_EXTENSION,
-    UASSETMETA_EXTENSION,
-];
-
-#[repr(u32)]
-#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
-pub enum AssetType {
-    UnrealAsset,
-    BulkData,
-    OptionalBulkData,
-    UnrealMap,
-    EssentialsAssetMetadata,
-}
-
-impl AssetType {
-    pub(crate) fn get_extension(&self) -> &str {
-        ASSET_EXTENSIONS[*self as usize]
-    }
-}
-
-impl From<&str> for AssetType {
-    fn from(value: &str) -> Self {
-        match value {
-            UASSET_EXTENSION => AssetType::UnrealAsset,
-            UBULK_EXTENSION => AssetType::BulkData,
-            UPTNL_EXTENSION => AssetType::OptionalBulkData,
-            UMAP_EXTENSION => AssetType::UnrealMap,
-            UASSETMETA_EXTENSION => AssetType::EssentialsAssetMetadata,
-            _ => panic!("Unknown file extension for AssetType (this should have been caught earlier!)")
-        }
-    }
-}
+use crate::metadata::MetadataState;
 
 #[derive(Debug)]
 pub struct AssetEntry {
@@ -150,7 +101,7 @@ impl AssetCollection {
             match os_path.extension().map(|s| s.to_str().unwrap()) {
                 Some(UASSETMETA_EXTENSION) => {
                     let asset_path = Self::convert_to_asset_path(&os_path, path.as_path());
-                    UtocMetadata::instance().as_mut().unwrap().add_from_uassetmeta(
+                    MetadataState::instance().as_mut().unwrap().add_from_uassetmeta(
                         FPackageId(lower_utf16_cityhash(&asset_path)), os_path.as_path())?;
                 },
                 Some(_) => {
@@ -160,7 +111,7 @@ impl AssetCollection {
                 },
                 None => match os_path.file_name().map(|f| f.to_str().unwrap()) {
                     Some(UTOCMETA) => {
-                        UtocMetadata::instance().as_mut().unwrap().add_from_utocmeta(
+                        MetadataState::instance().as_mut().unwrap().add_from_utocmeta(
                             std::fs::read(file.path())?.as_slice(), version)?;
                     },
                     _ => {}

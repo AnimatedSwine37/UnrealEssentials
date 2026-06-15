@@ -19,8 +19,8 @@ namespace UTOC.Stream.Emulator.Configuration
         
         [DisplayName("Use New Emulator")]
         [Description("Uses the new UTOC emulator with UE5 support")]
-        [DefaultValue(false)]
-        public bool UseNewEmulator { get; set; } = false;
+        [DefaultValue(true)]
+        public bool UseNewEmulator { get; set; } = true;
     }
 
     /// <summary>

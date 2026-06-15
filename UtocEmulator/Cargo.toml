@@ -2,7 +2,9 @@
 
 members = [
     "fileemu-utoc-stream-emulator",
-    "utoc-emulator"
+    "utoc-emulator",
+    "utoc-extractor",
+    "utoc-lib"
 ]
 resolver = "2"
 
@@ -10,7 +12,7 @@ resolver = "2"
 [profile.profile]
 inherits = "release"
 debug = true
-codegen-units = 1
+# codegen-units = 1
 lto = true
 strip = false  # No stripping!!
 
@@ -20,3 +22,6 @@ codegen-units = 1
 lto = "fat"
 strip = true  # Automatically strip symbols from the binary.
 panic = "abort"
+
+[patch."https://github.com/rirurin/retoc"]
+retoc = { path = "../../retoc/retoc" }

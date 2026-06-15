@@ -139,7 +139,6 @@ public class SignaturePropertyFactory
     private static void TryGetSignature(string key, Dictionary<string, List<Candidate>> signatures, Action<List<Candidate>> callback)
     {
         if (signatures.TryGetValue(key, out var source))
-            // callback = source;
             callback(source);
     }
 

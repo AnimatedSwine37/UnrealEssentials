@@ -32,7 +32,6 @@ internal class UtocMethods
         _getSigningKeysHook = new("GetPakSigningKeys", context.Properties.Signatures.GetPakSigningKeys, GetPakSigningKeysImpl);
         switch (_context.Properties.StartLoadDelegate)
         {
-         
             case StartLoadingDelegateType.NoArgs:
                 _startLoading0 = new(PackageStartLoading, context.Properties.Signatures.FAsyncPackage2_StartLoading, FAsyncPackage2_StartLoading0Impl);
                 break;
@@ -118,7 +117,7 @@ internal class UtocMethods
         var DiskName = Self->PackagePathToLoad;
         if (!DiskName.IsNone() && _config.FileAccessLog)
         {
-            Log($"StartLoading: {DiskName}");    
+            Log($"StartLoading: {DiskName}");
         }
         _startLoading4.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
     }

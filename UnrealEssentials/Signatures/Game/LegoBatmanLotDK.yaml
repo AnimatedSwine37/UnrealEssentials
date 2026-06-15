@@ -1,0 +1,17 @@
+# Lego Batman: Legacy of the Dark Knight
+EngineVersion: "UE_5_6"
+ExecutableName: "LEGOBatmanLotDK-<DistVersion>-Shipping"
+Signatures:
+    GetPakFolders: "48 8B C4 48 89 58 ?? 48 89 70 ?? 48 89 78 ?? 4C 89 70 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??"
+    GetPakOrder: "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 55 48 8B EC 48 83 EC 50 48 8B F9 48 8D 4D ?? E8 ?? ?? ?? ?? 33 DB"
+    PakOpenRead: "40 55 53 56 57 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??"
+    PakOpenAsyncRead: "48 89 5C 24 ?? 48 89 74 24 ?? 55 57 41 56 48 8D 6C 24 ?? 48 81 EC A0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 41 8A F0"
+    IsNonPakFilenameAllowed: "48 8B C4 48 89 68 ?? 48 89 70 ?? 48 89 78 ?? 41 56 48 83 EC 30 48 8B F1"
+    FileIoStoreOpenContainer:
+        signatures: "48 8D 05 ?? ?? ?? ?? 33 C9 48 89 07 E8 ?? ?? ?? ??"
+        transforms: DerefData(GetGlobalAddress(result + 3) + 16)
+    ReadBlocks: "48 89 5C 24 ?? 48 89 54 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 81 EC C0 00 00 00"
+    FileExists: "48 89 54 24 ?? 55 53 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 98 00 00 00 33 F6 48 8D 59 ??"
+    GFNamePool:
+        signatures: "48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? C6 05 ?? ?? ?? ?? 01 8B 80 ?? ?? ?? ?? 48 8D 54 24 ??"
+        transforms: GetIndirectAddressLong
