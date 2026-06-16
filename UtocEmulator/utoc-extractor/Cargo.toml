@@ -9,14 +9,16 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = "1.0.100"
+chrono = "0.4.45"
 clap = { version = "4.6.1", features = ["derive"] }
 console = "0.16.2"
+eframe = "0.34.3"
 egui = "0.34.3"
-egui-winit = "0.34.3"
+egui_dock = "0.19.1"
+egui_extras = "0.34.3"
 indicatif = "0.18.4"
 retoc = { git = "https://github.com/rirurin/retoc" }
 rfd = "0.17.2"
 serde = { version = "1.0.228", features = ["derive"] }
 utoc-lib = { path = "../utoc-lib" }
 walkdir = "2.5.0"
-winit = "0.30.13"

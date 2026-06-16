@@ -75,14 +75,8 @@ impl UtocMetadata {
         let mut reader = Cursor::new(data);
         // read header
         let version: UtocMetaVersion = reader.de()?;
-        let alt_auto_import_count: u32 = match version {
-            UtocMetaVersion::Initial =>  reader.de()?,
-            UtocMetaVersion::FastResolver => 0
-        };
-        let manual_v1_count: u32 = match version {
-            UtocMetaVersion::Initial => reader.de()?,
-            UtocMetaVersion::FastResolver => 0
-        };
+        let alt_auto_import_count: u32 = reader.de()?;
+        let manual_v1_count: u32 = reader.de()?;
         let compressed_package_count: u32 = match version {
             UtocMetaVersion::Initial => reader.de()?,
             UtocMetaVersion::FastResolver => 0
@@ -147,8 +141,8 @@ impl UtocMetadata {
 
     pub fn serialize<S: Write>(&self, stream: &mut S, version: EIoContainerHeaderVersion) -> GenericResult<()> {
         stream.ser(&UtocMetaVersion::FastResolver)?;
-        // stream.ser(&(self.alt_import_assets.len() as u32))?;
-        // stream.ser(&(self.manual_import_assets.len() as u32))?;
+        stream.ser(&(self.alt_import_assets.len() as u32))?;
+        stream.ser(&(self.manual_import_assets.len() as u32))?;
         // stream.ser(&(0u32))?;
         self.fast_resolve_assets.serialize(stream, version)?;
         Ok(())

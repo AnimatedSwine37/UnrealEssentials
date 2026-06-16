@@ -17,13 +17,7 @@ use retoc::ser::{ReadExt, WriteExt, Writeable};
 use retoc::zen::FZenPackageSummary;
 use utoc_lib::metadata::UtocMetadata;
 use utoc_lib::store::{get_asset_exports_new, get_asset_exports_old};
-
-#[derive(ValueEnum, Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
-enum AssetMetadata {
-    None,
-    Table,
-    PerAsset
-}
+use crate::common::AssetMetadata;
 
 #[derive(Parser, Debug)]
 struct Args {

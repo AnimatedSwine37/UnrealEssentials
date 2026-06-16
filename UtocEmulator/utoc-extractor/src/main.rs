@@ -1,5 +1,6 @@
 pub(crate) mod cli;
 pub(crate) mod gui;
+pub(crate) mod common;
 
 use std::error::Error;
 
