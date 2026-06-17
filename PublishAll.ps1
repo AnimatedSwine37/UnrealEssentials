@@ -33,7 +33,6 @@ function BuildEmulator {
     Pop-Location
 }
 
-BuildEmulator "fileemu-utoc-stream-emulator"
 BuildEmulator "utoc-emulator"
 
 ./Publish.ps1 -ProjectPath "UtocEmulator/UTOC.Stream.Emulator/UTOC.Stream.Emulator.csproj" `

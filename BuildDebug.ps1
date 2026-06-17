@@ -50,7 +50,6 @@ function BuildExtractor {
 
 BuildCsharpProject "UnrealEssentials"
 BuildCsharpProject "UnrealEssentials.Interfaces"
-BuildEmulator "fileemu-utoc-stream-emulator"
 BuildEmulator "utoc-emulator"
 BuildExtractor "utoc-extractor"
 BuildCsharpProject "UtocEmulator/$emulator_name_csharp" $emulator_name_csharp

@@ -1,7 +1,6 @@
 [workspace]
 
 members = [
-    "fileemu-utoc-stream-emulator",
     "utoc-emulator",
     "utoc-extractor",
     "utoc-lib"

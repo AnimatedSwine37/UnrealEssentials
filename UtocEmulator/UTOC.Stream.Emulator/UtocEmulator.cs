@@ -84,21 +84,13 @@ namespace UTOC.Stream.Emulator
             for (var i = 0; i < blockCount; i++)
             {
                 var containerBlock = Marshal.PtrToStructure<PartitionBlock>(blockPtr);
-                // _logger.LogInfo($"{Marshal.PtrToStringUni(containerBlock.osPath)}: {containerBlock.start:x} -> {containerBlock.start + containerBlock.length:x}");
                 streams.Add(new(
                     new FileStream(Marshal.PtrToStringUni(containerBlock.osPath), FileMode.Open),
                     OffsetRange.FromStartAndLength(containerBlock.start, containerBlock.length)
                 ));
                 var containerBlockEnd = containerBlock.start + containerBlock.length;
-                if (!_configuration.UseNewEmulator)
-                {
-                    var diff = Mathematics.RoundUp(containerBlockEnd, Constants.DefaultCompressionBlockAlignment) - containerBlockEnd;
-                    if (diff > 0)
-                        streams.Add(new(new PaddingStream(0, (int)diff), OffsetRange.FromStartAndLength(containerBlockEnd, diff)));   
-                }
                 unsafe { blockPtr += sizeof(PartitionBlock); }
-
-                streamEnd = _configuration.UseNewEmulator ? containerBlockEnd : Mathematics.RoundUp(containerBlockEnd, Constants.DefaultCompressionBlockAlignment);
+                streamEnd = containerBlockEnd;
             }
             unsafe
             {
@@ -193,13 +185,7 @@ namespace UTOC.Stream.Emulator
         private void AddFromFolderInner(string mod_path)
         {
             var mod_path_unicode = Marshal.StringToHGlobalUni(mod_path);
-            if (_configuration.UseNewEmulator)
-                RustApiNew.add_from_folders(mod_path_unicode, EngineVersion);
-            else
-            {
-                RustApi.AddFromFolders(mod_path_unicode, mod_path.Length);
-                Marshal.FreeHGlobal(mod_path_unicode);   
-            }
+            RustApi.add_from_folders(mod_path_unicode, EngineVersion);
         }
 
         public void OnModLoading(string dir_path)
@@ -212,95 +198,7 @@ namespace UTOC.Stream.Emulator
         {
             var mod_path_unicode = Marshal.StringToHGlobalUni(dir_path);
             var virtual_path_unicode = Marshal.StringToHGlobalUni(virtual_path);
-            if (_configuration.UseNewEmulator)
-                RustApiNew.add_from_folders_with_mount(mod_path_unicode, virtual_path_unicode, EngineVersion);
-            else
-            {
-                RustApi.AddFromFoldersWithMount(mod_path_unicode, dir_path.Length, virtual_path_unicode, virtual_path.Length);
-                Marshal.FreeHGlobal(mod_path_unicode);
-                Marshal.FreeHGlobal(virtual_path_unicode);
-            }
-        }
-
-        private void MakeFilesOnInitOld()
-        {
-            var PakVersion = EngineVersion switch
-            {
-                EngineVersion.UE_4_25 => PakType.FrozenIndex,
-                EngineVersion.UE_4_26 => PakType.Fn64BugFix,
-                EngineVersion.UE_4_27 => PakType.Fn64BugFix,
-                _ => PakType.NoTimestamps
-            };
-            TocType? TocVersion = EngineVersion switch
-            {
-                EngineVersion.UE_4_25 => TocType.Initial,
-                EngineVersion.UE_4_26 => TocType.DirectoryIndex,
-                EngineVersion.UE_4_27 => TocType.PartitionSize,
-                _ => null
-            };
-            if (PakVersion != PakType.FrozenIndex && PakVersion != PakType.Fn64BugFix)
-            {
-                _logger.LogInfo($"Pak version {PakVersion} is too old, stopping here");
-                return;
-            }
-            if (TocVersion == null)
-            {
-                _logger.LogInfo("TocVesrion unavailable, stopping here");
-                return;               
-            }
-            nint tocLength = 0;
-            nint tocData = 0;
-            nint blockPtr = 0;
-            nint blockCount = 0;
-            nint headerPtr = 0;
-            nint headerSize = 0;
-            nint mod_path_unicode = Marshal.StringToHGlobalUni(ModTargetFilesDirectory);
-            var result = RustApi.BuildTableOfContentsEx(mod_path_unicode, ModTargetFilesDirectory.Length
-                , (uint)TocVersion, ref tocData, ref tocLength,
-                ref blockPtr, ref blockCount, ref headerPtr, ref headerSize
-            );
-            Marshal.FreeHGlobal(mod_path_unicode);
-            if (!result)
-            {
-                _logger.LogError("An error occurred while making IO Store data");
-                return;
-            }
-            if(blockCount == 0)
-            {
-                _logger.LogInfo("No IO store files found, not creating emulated file.");
-                return;
-            }
-            unsafe
-            {
-                TocStream = new UnmanagedMemoryStream((byte*)tocData, (long)tocLength);
-                CasStream = new MultiStream(CreateContainerStream(blockPtr, (int)blockCount, headerPtr, (int)headerSize), _logger);
-            }
-            AddPakFolderCb(ModTargetFilesDirectory);
-        }
-
-        private unsafe void MakeFilesOnInitNew()
-        {
-            var toc = (Array<byte>*)NativeMemory.AlignedAlloc((nuint)(3 * sizeof(Array<byte>)), (nuint)sizeof(nint));
-            var blocks = (Array<PartitionBlock>*)(toc + 1);
-            var header = toc + 2;
-            var result = RustApiNew.build_toc(
-                    // Marshal.StringToHGlobalUni(ModTargetFilesDirectory),
-                    EngineVersion, toc, blocks, header);
-            if (!result)
-            {
-                _logger.LogError("An error occurred while making IO Store data");
-                return;
-            }
-
-            if (blocks->Len == 0)
-            {
-                _logger.LogInfo("No IO store files found, not creating emulated file.");
-                return;   
-            }
-            TocStream = new UnmanagedMemoryStream(toc->Entries, toc->Len);
-            CasStream = new MultiStream(CreateContainerStream((nint)blocks->Entries, (int)blocks->Len,
-                (nint)header->Entries, (int)header->Len));
-            AddPakFolderCb(ModTargetFilesDirectory);
+            RustApi.add_from_folders_with_mount(mod_path_unicode, virtual_path_unicode, EngineVersion);
         }
 
         public void MakeFilesOnInit() // from base Unreal Essentials path
@@ -310,17 +208,29 @@ namespace UTOC.Stream.Emulator
                 _logger.LogInfo("Game is not using IO Store, stopping here");
                 return;
             }
+            unsafe
+            {
+                var toc = (Array<byte>*)NativeMemory.AlignedAlloc((nuint)(3 * sizeof(Array<byte>)), (nuint)sizeof(nint));
+                var blocks = (Array<PartitionBlock>*)(toc + 1);
+                var header = toc + 2;
+                var result = RustApi.build_toc( EngineVersion, toc, blocks, header);
+                if (!result)
+                {
+                    _logger.LogError("An error occurred while making IO Store data");
+                    return;
+                }
 
-            if (_configuration.UseNewEmulator)
-                MakeFilesOnInitNew();
-            else
-                MakeFilesOnInitOld();
+                if (blocks->Len == 0)
+                {
+                    _logger.LogInfo("No IO store files found, not creating emulated file.");
+                    return;   
+                }
+                TocStream = new UnmanagedMemoryStream(toc->Entries, toc->Len);
+                CasStream = new MultiStream(CreateContainerStream((nint)blocks->Entries, (int)blocks->Len,
+                    (nint)header->Entries, (int)header->Len));   
+            }
+            AddPakFolderCb(ModTargetFilesDirectory);
         }
-        public void OnLoaderInit()
-        {
-            if (!_configuration.UseNewEmulator)
-                RustApi.PrintAssetCollectorResults();
-            MakeFilesOnInit();
-        }
+        public void OnLoaderInit() => MakeFilesOnInit();
     }
 }

@@ -4,31 +4,6 @@ using UTOC.Stream.Emulator.Interfaces;
 
 namespace UTOC.Stream.Emulator
 {
-    public static unsafe class RustApi
-    {
-
-        const string __DllName = "fileemu_utoc_stream_emulator";
-
-        [DllImport("fileemu_utoc_stream_emulator")] // Collect assets
-        public static extern void AddFromFolders(nint modPath, nint modPathLength);
-        //public static extern void AddFromFolders(string mod_id, string mod_path);
-
-        [DllImport("fileemu_utoc_stream_emulator")] // Collect assets
-        public static extern void AddFromFoldersWithMount(nint modPath, nint modPathLength, nint virtualPath, nint virtualPathLength);
-
-        [DllImport("fileemu_utoc_stream_emulator")]
-        public static extern void PrintAssetCollectorResults();
-
-        [DllImport("fileemu_utoc_stream_emulator")]
-        public static extern bool BuildTableOfContentsEx(
-            nint basePath, nint basePathLength, uint version, ref nint tocData, ref nint tocLength,
-            ref nint blocks, ref nint blockCount, ref nint header, ref nint headerSize
-        );
-
-        [DllImport(__DllName, EntryPoint = "set_reloaded_logger", CallingConvention = CallingConvention.StdCall, ExactSpelling = true)]
-        internal static extern void SetReloadedLogger(delegate* unmanaged[Stdcall]<nint, nint, int, void> offset);
-    }
-
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Array<T>
         where T : unmanaged
@@ -37,7 +12,7 @@ namespace UTOC.Stream.Emulator
         public nint Len;
     }
 
-    public static unsafe class RustApiNew
+    public static unsafe class RustApi
     {
         const string __DllName = "utoc_emulator";
         

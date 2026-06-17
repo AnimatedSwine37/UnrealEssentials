@@ -112,8 +112,9 @@ impl AssetCollection {
             match os_path.extension().map(|s| s.to_str().unwrap()) {
                 Some(UASSETMETA_EXTENSION) => {
                     let asset_path = Self::convert_to_asset_path(&os_path, path.as_path(), mount.as_ref());
+                    let asset_path_tr = asset_path[MOUNT_POINT.len() - 1..].rsplit_once('.').unwrap().0;
                     MetadataState::instance().as_mut().unwrap().add_from_uassetmeta(
-                        FPackageId(lower_utf16_cityhash(&asset_path)), os_path.as_path())?;
+                        FPackageId(lower_utf16_cityhash(asset_path_tr)), os_path.as_path())?;
                 },
                 Some(_) => {
                     let asset_path = Self::convert_to_asset_path(&os_path, path.as_path(), mount.as_ref());
