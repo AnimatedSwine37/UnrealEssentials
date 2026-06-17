@@ -135,7 +135,11 @@ impl Drop for CSharpString {
 pub unsafe extern "C" fn add_from_folders(
     mod_path: CSharpString,
     version: EngineVersion) {
-    AssetCollection::add_from_folder(Into::<String>::into(mod_path), version.to_retoc()).unwrap();
+    let mod_path = Into::<String>::into(mod_path);
+    if let Err(e) = AssetCollection::add_from_folder(
+        &mod_path, version.to_retoc()) {
+        log!(Error, "An error occurred while collecting assets from {}: {}", mod_path, e.to_string());
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -143,11 +147,14 @@ pub unsafe extern "C" fn add_from_folders_with_mount(
     mod_path: CSharpString,
     virtual_path: CSharpString,
     version: EngineVersion) {
-    AssetCollection::add_from_folder_with_mount(
-        Into::<String>::into(mod_path),
-        Into::<String>::into(virtual_path),
-        version.to_retoc()
-    ).unwrap();
+    let mod_path = Into::<String>::into(mod_path);
+    let virtual_path = Into::<String>::into(virtual_path);
+    if let Err(e) = AssetCollection::add_from_folder_with_mount(
+        &mod_path, &virtual_path, version.to_retoc()
+    ) {
+        log!(Error, "An error occurred while collecting assets from {} with virtual path {}: {}"
+            , mod_path, virtual_path, e.to_string());
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -164,5 +171,8 @@ pub unsafe extern "C" fn build_toc(
         unsafe { blocks.as_mut() },
         unsafe { header.as_mut() }
     );
+    if let Err(e) = &result {
+        log!(Error, "An error occurred while building the IO Store package: {}", e.to_string());
+    }
     result.is_ok()
 }

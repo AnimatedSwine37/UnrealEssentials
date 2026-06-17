@@ -39,8 +39,8 @@ function BuildExtractor {
     )
 
     Push-Location "./UtocEmulator/$Name"
-    $env:RUSTFLAGS = "-C panic=abort -C lto=fat -C embed-bitcode=yes"
-    cargo +nightly rustc --release -Z build-std=std,panic_abort --target $target_triple
+    $env:RUSTFLAGS = ""
+    cargo +nightly rustc --target $target_triple
     Push-Location "../target/$target_triple/release"
     New-Item "$env:RELOADEDIIMODS\UnrealEssentials\Tools" -ItemType Directory -ErrorAction SilentlyContinue
     Copy-Item "$Name.exe" -Destination "$env:RELOADEDIIMODS\UnrealEssentials\Tools"

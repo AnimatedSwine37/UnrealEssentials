@@ -26,6 +26,7 @@ pub struct UtocMetadata {
     fast_resolve_assets: StoreEntries
 }
 
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub enum UtocMetaImportType {
     GraphPackageUnvalidated,
     GraphPackageValidated,

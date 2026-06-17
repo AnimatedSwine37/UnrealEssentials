@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs::Metadata;
 use std::os::windows;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 use retoc::{lower_utf16_cityhash, FPackageId};
 use retoc::version::EngineVersion;
@@ -71,7 +71,8 @@ impl AssetCollection {
 
     /// The input path is expected to be relative to the UnrealEssentials folder:
     /// e.g The path's value should be P3R/Content/...
-    pub(crate) fn convert_to_asset_path<P0: AsRef<Path>, P1: AsRef<Path>>(path: P0, base: P1) -> String {
+    pub(crate) fn convert_to_asset_path<P0, P1>(path: P0, base: P1, vpath: Option<&PathBuf>) -> String
+    where P0: AsRef<Path>, P1: AsRef<Path> {
         let path = {
             let path = path.as_ref().strip_prefix(base.as_ref()).unwrap().to_str().unwrap().to_owned();
             if cfg!(target_os = "windows") {
@@ -86,7 +87,13 @@ impl AssetCollection {
             ENGINE_DOMAIN => ENGINE_DOMAIN,
             _ => "Game"
         };
-        format!("../../../{}/{}", domain, parts[2])
+        match vpath {
+            Some(v) => {
+                let vpath = v.to_str().unwrap();
+                format!("../../../{}/{}/{}", vpath, domain, parts[2])
+            },
+            None => format!("../../../{}/{}", domain, parts[2])
+        }
     }
 
     /// Recursively registers all the assets inside of a folder into the asset list to get replaced.
@@ -95,17 +102,21 @@ impl AssetCollection {
     pub(crate) fn add_from_folder<P: AsRef<Path>>(path: P, version: EngineVersion) -> GenericResult<()> {
         let path = path.as_ref().to_owned();
         if !path.exists() { return Ok(()); }
+        Self::add_from_folder_inner(path, None, version)
+    }
+
+    pub(crate) fn add_from_folder_inner(path: PathBuf, mount: Option<PathBuf>,
+        version: EngineVersion) -> GenericResult<()> {
         for file in WalkDir::new(&path).into_iter().filter_map(Self::filter_dir_entries) {
             let os_path = file.path().to_owned();
-            // log!(Debug, "{:?}, {:?}", &os_path, path.as_path());
             match os_path.extension().map(|s| s.to_str().unwrap()) {
                 Some(UASSETMETA_EXTENSION) => {
-                    let asset_path = Self::convert_to_asset_path(&os_path, path.as_path());
+                    let asset_path = Self::convert_to_asset_path(&os_path, path.as_path(), mount.as_ref());
                     MetadataState::instance().as_mut().unwrap().add_from_uassetmeta(
                         FPackageId(lower_utf16_cityhash(&asset_path)), os_path.as_path())?;
                 },
                 Some(_) => {
-                    let asset_path = Self::convert_to_asset_path(&os_path, path.as_path());
+                    let asset_path = Self::convert_to_asset_path(&os_path, path.as_path(), mount.as_ref());
                     let file_size = Self::os_file_size(&file.metadata()?);
                     Self::instance().as_mut().unwrap().insert(asset_path, AssetEntry::new(os_path, file_size));
                 },
@@ -122,10 +133,9 @@ impl AssetCollection {
     }
 
     pub(crate) fn add_from_folder_with_mount<P0: AsRef<Path>, P1: AsRef<Path>>(
-        path: P0, mount: P1, _version: EngineVersion) -> GenericResult<()> {
+        path: P0, mount: P1, version: EngineVersion) -> GenericResult<()> {
         let (path, mount) = (path.as_ref().to_owned(), mount.as_ref().to_owned());
         if !path.exists() || !mount.exists() { return Ok(()); }
-        log!(Information, "TODO: add_from_folder_with_mount");
-        Ok(())
+        Self::add_from_folder_inner(path, Some(mount), version)
     }
 }

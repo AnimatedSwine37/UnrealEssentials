@@ -81,11 +81,13 @@ impl LegacyImportIdResolver {
             vec![], |n| n.iter().map(|v| *v).collect())
     }
 
+    /*
     /// Using the new metadata schema (just retoc::container_header::StoreEntry)
     fn from_metadata_v2(meta: &UtocMetadata, asset: FPackageId) -> Vec<FPackageId> {
         meta.get_manual_v2_import(asset).map_or(
             vec![], |n| n.imported_packages)
     }
+    */
 }
 
 pub(crate) fn size_of_export_bundle_header(header_version: EIoContainerHeaderVersion) -> u32 {
@@ -219,6 +221,10 @@ impl IoStoreFactory {
         package_id: FPackageId,
         header_version: EIoContainerHeaderVersion
     ) -> GenericResult<StoreEntry> {
+        if let Some(store) = MetadataState::instance().as_ref().unwrap()
+            .get_manual_v2_import(package_id) {
+            return Ok(store);
+        }
         let mut reader = BufReader::with_capacity(
             0x2000, File::open(asset_entry.os_path.as_path())?);
         let mut store_entry = StoreEntry::default();
@@ -270,7 +276,7 @@ impl IoStoreFactory {
             UtocMetaImportType::GraphPackageUnvalidated => LegacyImportIdResolver::from_graph_packages_unvalidated(&package_dependencies),
             UtocMetaImportType::GraphPackageValidated => LegacyImportIdResolver::from_graph_packages_validated(&mut reader, &package_header, &package_dependencies),
             UtocMetaImportType::ManualV1 => LegacyImportIdResolver::from_metadata_v1(metadata.as_ref().unwrap(), package_id),
-            UtocMetaImportType::ManualV2 => LegacyImportIdResolver::from_metadata_v2(metadata.as_ref().unwrap(), package_id),
+            UtocMetaImportType::ManualV2 => panic!("ManualV2 would have made an early return at the start of rebuild_store_entry_old!")
         };
         drop(metadata);
         store_entry.export_bundles_size = asset_entry.size;
