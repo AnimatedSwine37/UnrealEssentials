@@ -1,9 +1,9 @@
 use std::fs::File;
 use std::io::{BufReader, Cursor};
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 use clap::{Parser, ValueEnum};
-use retoc::{AesKey, Config, EIoChunkType, FGuid, Toc};
+use retoc::{AesKey, Config, EIoChunkType, FGuid, Toc, UEPath, UEPathBuf};
 use retoc::version::EngineVersion;
 use crate::GenericResult;
 use std::str::FromStr;
@@ -17,7 +17,7 @@ use retoc::ser::{ReadExt, WriteExt, Writeable};
 use retoc::zen::FZenPackageSummary;
 use utoc_lib::metadata::UtocMetadata;
 use utoc_lib::store::{get_asset_exports_new, get_asset_exports_old};
-use crate::common::AssetMetadata;
+use crate::common::{get_root_path, AssetMetadata};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -26,7 +26,7 @@ struct Args {
     input: String,
     #[arg(long)]
     aes_key: Option<String>,
-    #[arg(short, long, help = "Define a set of paths in the archive to extract. If not specified, everything will be extracted")]
+    #[arg(short, long, num_args = 1.., value_delimiter = ',', help = "Define a set of paths in the archive to extract. If not specified, everything will be extracted")]
     include: Vec<String>,
     #[arg(short, long)]
     metadata: Option<AssetMetadata>,
@@ -110,18 +110,30 @@ pub(crate) fn execute() -> GenericResult<()> {
     let output = args.output.map_or(output_default, |v| PathBuf::from(v));
     let root_folder = args.root_name.as_ref().map_or("Game", |v| v.as_str());
     let mount_point = toc.directory_index.mount_point.to_string();
-    let content = if mount_point.len() > utoc_lib::assets::MOUNT_POINT.len() {
-        output.join(&mount_point[utoc_lib::assets::MOUNT_POINT.len()..])
-    } else {
-        output.join(root_folder).join("Content")
-    };
+    let content = get_root_path(output.as_path(), &mount_point, &toc, root_folder);
     let mut cas = BufReader::new(File::open(&cas_path)?);
 
     println!("Metadata type: {:?}", metadata);
     println!("Writing into {}", output.to_str().unwrap());
 
-    let assets: Vec<_> = toc.chunk_id_map.iter().filter_map(|(id, offset)|
-        toc.file_map_rev.get(offset).map(|f| (id, f.clone(), *offset))).collect();
+    let assets: Vec<_> = toc.chunk_id_map.iter()
+        .filter_map(|(id, offset)| {
+            let entry = toc.file_map_rev.get(offset);
+            if entry.is_none() { return None; }
+            let entry = entry.unwrap();
+            let path = content.strip_prefix(output.as_path()).unwrap()
+                .join(entry);
+            let path = path.components().filter_map(|c| match c {
+                Component::Normal(c) => Some(c.to_str().unwrap().to_string()),
+                _ => None }).collect::<Vec<String>>().join("/");
+            match args.include.len() {
+                0 => Some((id, entry.clone(), *offset)),
+                _ => {
+                    args.include.iter().find(|f| path.starts_with(*f))
+                        .map(|_| (id, entry.clone(), *offset))
+                }
+            }
+    }).collect();
 
     let bar = Progress::new(assets.len() as u64)?;
     let mut toc_meta = UtocMetadata::default();

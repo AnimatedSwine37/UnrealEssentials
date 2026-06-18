@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, Cursor};
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
@@ -17,7 +17,7 @@ use retoc::ser::{ReadExt, WriteExt};
 use retoc::version::EngineVersion;
 use rfd::FileDialog;
 use utoc_lib::metadata::UtocMetadata;
-use crate::common::AssetMetadata;
+use crate::common::{get_root_path, AssetMetadata};
 use crate::GenericResult;
 
 pub trait AppAction {
@@ -261,46 +261,72 @@ impl UnpackAction {
     }
 
     fn load_utoc(&mut self) -> GenericResult<()> {
+        self.include.clear();
         let start = Instant::now();
         let config = self.create_config()?;
         self.toc = Some(BufReader::new(File::open(self.input.get_path())?).de_ctx(config.clone())?);
         let toc = self.toc.as_ref().unwrap();
         let mount_point = toc.directory_index.mount_point.to_string();
-        let root_parts: Vec<_> = if mount_point.len() > utoc_lib::assets::MOUNT_POINT.len() {
-            (&mount_point[utoc_lib::assets::MOUNT_POINT.len()..]).split("/").filter(|v| !v.is_empty()).collect()
+        let root_parts: Option<Vec<_>> = if mount_point.len() > utoc_lib::assets::MOUNT_POINT.len() {
+            Some((&mount_point[utoc_lib::assets::MOUNT_POINT.len()..])
+                     .split("/").filter(|v| !v.is_empty()).collect())
         } else {
-            vec![self.root_name.as_ref(), "Content"]
+            // Determine if we need to make the /Game/Content folders ourselves:
+            let mut make_folders = true;
+            for (file, _) in &toc.file_map {
+                if let Some(s) = file.split_once('/') && s.0 == "Engine" {
+                    make_folders = false;
+                    break;
+                }
+            }
+            match make_folders {
+                true => Some(vec![self.root_name.as_ref(), "Content"]),
+                false => None
+                // false => (vec!["Root"], true),
+            }
         };
-        self.toc_root = Some(TocEntry::directory(root_parts[0].to_string(), root_parts[0].to_string()));
-        let mut root = self.toc_root.as_mut().unwrap();
-        for (i, part) in root_parts[1..].iter().enumerate() {
-            match root {
-                TocEntry::Directory(d) => {
-                    d.children.push(TocEntry::directory(
-                        part.to_string(),
-                        root_parts[..i + 1].join("/")));
-                    root = d.children.last_mut().unwrap();
-                },
-                _ => panic!("Expected a folder")
+        match &root_parts {
+            Some(root_parts) => {
+                self.toc_root = Some(TocEntry::directory(root_parts[0].to_string(), root_parts[0].to_string()));
+                let mut root = self.toc_root.as_mut().unwrap();
+                for (i, part) in root_parts[1..].iter().enumerate() {
+                    match root {
+                        TocEntry::Directory(d) => {
+                            d.children.push(TocEntry::directory(
+                                part.to_string(),
+                                root_parts[..i + 1].join("/")));
+                            root = d.children.last_mut().unwrap();
+                        },
+                        _ => panic!("Expected a folder")
+                    }
+                }
+            },
+            None => {
+                let name = "Root".to_string();
+                self.toc_root = Some(TocEntry::directory(name.clone(), name));
             }
         }
-
-        let mount_point = root_parts.join("/");
+        let mount_point = root_parts.as_ref().map(|v| v.join("/"));
         toc.directory_index.iter_root(|_, path| {
             let mut current = self.toc_root.as_mut().unwrap();
-            for part in root_parts[1..].iter() {
-                match current {
-                    TocEntry::Directory(d) => {
-                        current = d.children.iter_mut()
-                            .find(|v| v.get_name() == *part).unwrap();
-                    },
-                    _ => panic!("Expected a folder")
+            if let Some(root_parts) = &root_parts {
+                for part in root_parts[1..].iter() {
+                    match current {
+                        TocEntry::Directory(d) => {
+                            current = d.children.iter_mut()
+                                .find(|v| v.get_name() == *part).unwrap();
+                        },
+                        _ => panic!("Expected a folder")
+                    }
                 }
             }
             for (i, name) in path[..path.len() - 1].iter().enumerate() {
                 match current {
                     TocEntry::Directory(d) => {
-                        let full_path = format!("{}/{}", &mount_point, path[..i + 1].join("/"));
+                        let full_path = match &mount_point {
+                            Some(mount) => format!("{}/{}", mount, path[..i + 1].join("/")),
+                            None => path[..i + 1].join("/").to_string()
+                        };
                         if d.children.iter_mut()
                             .find(|v| v.get_name() == *name).is_none() {
                             d.children.push(TocEntry::directory(name.to_string(), full_path));
@@ -312,7 +338,10 @@ impl UnpackAction {
             }
             match current {
                 TocEntry::Directory(d) => {
-                    let full_path = format!("{}/{}", &mount_point, path.join("/"));
+                    let full_path = match &mount_point {
+                        Some(mount) => format!("{}/{}", mount, path.join("/")),
+                        None => path.join("/")
+                    };
                     d.children.push(TocEntry::file(path.last().unwrap().to_string(), full_path, &mut self.include));
                 },
                 _ => panic!("Expected a folder")
@@ -379,18 +408,9 @@ impl UnpackAction {
                 _ => {}
             }
         }
-        let mut output = self.output.get_path();
+        let output = self.output.get_path();
         let mount_point = toc.directory_index.mount_point.to_string();
-        let content = if mount_point.len() > utoc_lib::assets::MOUNT_POINT.len() {
-            output.join(&mount_point[utoc_lib::assets::MOUNT_POINT.len()..])
-        } else {
-            output.join(&self.root_name).join("Content")
-        };
-        let content_str = if mount_point.len() > utoc_lib::assets::MOUNT_POINT.len() {
-            (&mount_point[utoc_lib::assets::MOUNT_POINT.len()..]).to_string()
-        } else {
-            format!("{}/Content/", self.root_name)
-        };
+        let content = get_root_path(output.as_path(), &mount_point, &toc, &self.root_name);
         let mut cas = BufReader::new(File::open(&cas_path)?);
 
         println!("Metadata type: {:?}", self.metadata);
@@ -401,19 +421,22 @@ impl UnpackAction {
 
         let mut toc_meta = UtocMetadata::default();
         for (id, path, offset) in &assets {
-            if !self.include.contains(&format!("{}{}", &content_str, path)) {
+            let os_path = content.join(path);
+            let asset_path = os_path.strip_prefix(output.as_path())?
+                .components().filter_map(|c| match c {
+                Component::Normal(c) => Some(c.to_str().unwrap().to_string()),
+                _ => None }).collect::<Vec<String>>().join("/");
+            if !self.include.contains(&asset_path) {
                 continue;
             }
             let store_entry = header.get_store_entry(id.get_package_id());
-            let asset_path = content.join(path);
             let data = toc.read(&mut cas, *offset as _)?;
-            let dir_path = asset_path.parent().unwrap();
-            std::fs::create_dir_all(dir_path)?;
-            std::fs::write(&asset_path, &data)?;
+            std::fs::create_dir_all(os_path.parent().unwrap())?;
+            std::fs::write(&os_path, &data)?;
             if let Some(store_entry) = store_entry {
                 match self.metadata {
                     AssetMetadata::PerAsset => {
-                        let meta_path = asset_path.with_extension("uassetmeta");
+                        let meta_path = os_path.with_extension("uassetmeta");
                         let mut meta_file = File::create(meta_path)?;
                         meta_file.ser(&store_entry)?;
                     },
@@ -442,8 +465,10 @@ impl AppAction for UnpackAction {
             self.info = match self.load_utoc() {
                 Ok(_) => {
                     if self.output.path.is_empty() {
-                        self.output.path = self.input.get_path().parent().unwrap()
-                            .to_str().unwrap().to_string();
+                        let in_path = self.input.get_path();
+                        let name = in_path.file_stem().unwrap().to_str().unwrap();
+                        self.output.path = in_path.parent().unwrap()
+                            .join(name).to_str().unwrap().to_string();
                     }
                     None
                 },
@@ -557,10 +582,12 @@ impl Default for App {
                     title: "Unpack".to_string(),
                     contents: Some(Box::new(UnpackAction::default()))
                 },
+                /*
                 AppTab {
                     title: "Merge".to_string(),
                     contents: None
                 },
+                */
             ])
         }
     }

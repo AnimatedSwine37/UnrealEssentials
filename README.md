@@ -14,7 +14,7 @@ A mod for [Reloaded-II](https://reloaded-project.github.io/Reloaded-II/) that ma
 - Automatic conversion of cooked uassets to IO Store uassets (see note in [Loose Files](#loose-files))
 
 ## Supported Games
-Below is a list of games that are known to work with Unreal Essentials. Just because a game isn't on the list doesn't mean it doesn't work, generally UE 4 games from 4.25-4.27 and UE 5 games will work.
+Below is a list of games that are known to work with Unreal Essentials. Just because a game isn't on the list doesn't mean it doesn't work, generally UE 4 games from 4.25-4.27 and UE 5 games from 5.0-5.7 will work.
 
 If you know of a game that doesn't work you can create an [issue](https://github.com/AnimatedSwine37/UnrealEssentials/issues) and support might be added for it.
 
@@ -42,7 +42,7 @@ If you know of a game that doesn't work you can create an [issue](https://github
 | [Sonic Racing: CrossWorlds](https://store.steampowered.com/app/2486820/Sonic_Racing_CrossWorlds/) | 5.4 |
 | [Spirit City: Lofi Sessions](https://store.steampowered.com/app/2113850/Spirit_City_Lofi_Sessions/) | 5.7 |
 | [Subnautica 2](https://store.steampowered.com/app/1962700/Subnautica_2/) | 5.6 |
-| [The Adventures of Elliot: The Millennium Tales](https://store.steampowered.com/app/3483510/The_Adventures_of_Elliot_The_Millennium_Tales/) | 5.6 | Checked with demo, full game isn't out yet
+| [The Adventures of Elliot: The Millennium Tales](https://store.steampowered.com/app/3483510/The_Adventures_of_Elliot_The_Millennium_Tales/) | 5.6 | Checked with demo
 | [The Callisto Protocol](https://store.steampowered.com/app/1544020/The_Callisto_Protocol/) | 4.27 | Need to use ASI Loader or remove DRM with [Steamless](https://github.com/atom0s/Steamless/) |
 
 ## Usage
@@ -50,8 +50,8 @@ First you'll need to create a Reloaded mod and set Unreal Esentials as a depende
 
 Next, open your mod's folder and create an `UnrealEssentials` folder inside of it, this is where you will put your edited files. 
 
-### Full UTOC and PAK Files
-To include full UTOC or PAK files simply put them anywhere in the `UnrealEssentials` folder (you can use subfolders if you'd like). 
+### Adding Full Packages
+To include a full package (`.utoc` + `.ucas` or `.pak`), place them anywhere in the `UnrealEssentials` folder. You can use subfolders if you'd like.
 
 You do not need to suffix the file names with `_P` as you normally would if manually placing files in the game's folder, priority will automatically be sorted by Unreal Essentials (although if they do have `_P` in the name it won't hurt).
 
@@ -59,10 +59,11 @@ For example, a mod from Scarlet Nexus that uses full files looks like
 
 ![image](https://github.com/AnimatedSwine37/UnrealEssentials/assets/24914353/54d8bb20-c2d1-4f91-a653-9ca2bb59c6c7)
 
-### Loose Files
+### Adding Loose Assets
+
 To include loose files put them in the `UnrealEssentials` folder, replicating their folder structure from the original game (this structure will generally start with `GameName/Content`).
 
-Note that if your game uses UTOC files, any **.uasset** files you replace will have to come from a UTOC as the file format is different when they are in PAK files. This means that you will need to export them from Unreal Engine in utocs and then extract them if you want to use them loosely. This will be fixed at a later time.
+Note that if your game uses UTOC files, any `.uasset` files you replace will have to come from a UTOC as the file format is different when they are in PAK files. This means that you will need to export them from Unreal Engine into an IO Store container ()`.utoc` + `.ucas` and then extract them if you want to use them loosely. This will be fixed at a later time.
 
 For example, using [FModel](https://github.com/4sval/FModel) we could find the font files in Persona 3 Reload at `P3R/Content/Xrd777/Font`
 
@@ -71,3 +72,32 @@ For example, using [FModel](https://github.com/4sval/FModel) we could find the f
 To then replace one of these files we'd put our edited one in `UnrealEssentials/P3R/Content/Xrd777/Font` like
 
 ![image](https://github.com/AnimatedSwine37/UnrealEssentials/assets/24914353/3c25cb0f-c44d-4304-90fa-e71457eb6b45)
+
+### Notes for Loose Zen Assets
+
+*Zen Assets refer to assets originating from an IO Store container, which when unpacked will output a `.uasset` without any associated `.uexp`.*
+
+There are some things to consider when using loose zen assets to ensure that your mod works as expected and to reduce loading times for the emulator.
+
+For UE versions below 5.3, there is insufficient dependency information in the asset to accurately construct the imports and exports needed for the asset to function properly. While Unreal Essentials 1.x includes methods for deriving dependency info in UE4, the process is not perfect and there are occasionally files that don't resolve the right information, resulting in a game crash or other unintended behavior.
+
+To resolve this, Unreal Essentials can use asset metadata that can be either defined per-asset in a `.uassetmeta` or for an entire mod in a `.utocmeta`. These files are generated [using the UTOC Extractor](#using-the-utoc-extractor).
+
+For **UE 4.25 - 4.27**, asset metadata is optional to maintain backwards compatibility with 1.x. However, we recommend that mod authors use the UTOC extractor to generate asset metadata to avoid the issues detailed above.
+
+For **UE 5.0 - 5.2**, asset metadata is required and UTOC emulator will fail with the message *"Asset metadata is required for UE5 versions before 5.3!"* if it is missing.
+
+For **UE 5.3** and above, asset metadata is optional.
+
+### Using the UTOC Extractor
+
+#### CLI
+
+...
+
+#### GUI
+
+...
+
+## Credits
+- **[trumank](https://github.com/trumank)** and **[Archengius](https://github.com/Archengius)** - Developers of [retoc](https://github.com/trumank/retoc/), the serialization library used by UTOC Emulator

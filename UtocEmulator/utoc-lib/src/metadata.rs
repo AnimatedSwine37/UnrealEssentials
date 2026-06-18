@@ -119,6 +119,10 @@ impl UtocMetadata {
         Ok(())
     }
 
+    pub fn add_graph_package_validated_entry_ue4(&mut self, key: FPackageId) {
+        self.alt_import_assets.insert(key);
+    }
+
 
     pub fn get_import_type(&self, asset: FPackageId) -> UtocMetaImportType {
         if self.fast_resolve_assets.contains(asset) {
@@ -144,6 +148,9 @@ impl UtocMetadata {
         stream.ser(&UtocMetaVersion::FastResolver)?;
         stream.ser(&(self.alt_import_assets.len() as u32))?;
         stream.ser(&(self.manual_import_assets.len() as u32))?;
+        for import in &self.alt_import_assets {
+            stream.ser(import)?;
+        }
         // stream.ser(&(0u32))?;
         self.fast_resolve_assets.serialize(stream, version)?;
         Ok(())

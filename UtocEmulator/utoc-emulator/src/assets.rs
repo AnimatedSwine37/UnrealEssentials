@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fs::Metadata;
-use std::os::windows;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 use retoc::{lower_utf16_cityhash, FPackageId};
@@ -61,12 +60,12 @@ impl AssetCollection {
 
     #[cfg(target_os = "linux")]
     fn os_file_size(metadata: &Metadata) -> u64 {
-        linux::fs::MetadataExt::st_size(&meta)
+        std::os::linux::fs::MetadataExt::st_size(&meta)
     }
 
     #[cfg(target_os = "windows")]
     fn os_file_size(metadata: &Metadata) -> u64 {
-        windows::fs::MetadataExt::file_size(metadata)
+        std::os::windows::fs::MetadataExt::file_size(metadata)
     }
 
     /// The input path is expected to be relative to the UnrealEssentials folder:

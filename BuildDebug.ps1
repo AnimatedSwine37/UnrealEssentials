@@ -41,7 +41,7 @@ function BuildExtractor {
     Push-Location "./UtocEmulator/$Name"
     $env:RUSTFLAGS = ""
     cargo +nightly rustc --target $target_triple
-    Push-Location "../target/$target_triple/release"
+    Push-Location "../target/$target_triple/debug"
     New-Item "$env:RELOADEDIIMODS\UnrealEssentials\Tools" -ItemType Directory -ErrorAction SilentlyContinue
     Copy-Item "$Name.exe" -Destination "$env:RELOADEDIIMODS\UnrealEssentials\Tools"
     Pop-Location
