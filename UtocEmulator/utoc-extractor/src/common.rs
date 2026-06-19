@@ -1,21 +1,17 @@
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::io::BufWriter;
 use std::path::{Component, Path, PathBuf};
 use clap::ValueEnum;
 use eframe::epaint::Color32;
 use egui::{ComboBox, Id, TextEdit, Ui, WidgetText};
 use egui_dock::TabViewer;
 use ini::Ini;
-use retoc::ser::WriteExt;
 use retoc::Toc;
 use retoc::version::EngineVersion;
 use walkdir::DirEntry;
 #[cfg(not(target_os = "windows"))]
 use rfd::FileDialog;
-use utoc_lib::assets::{convert_to_package_id, UASSETMETA_EXTENSION, UASSET_EXTENSION, UMAP_EXTENSION, UTOCMETA};
-use utoc_lib::metadata::UtocMetadata;
-use crate::cli::Progress;
+use utoc_lib::assets::{UASSET_EXTENSION, UMAP_EXTENSION, UTOCMETA};
 use crate::GenericResult;
 use crate::gui::AppTab;
 
@@ -258,97 +254,5 @@ impl FilterByAsset {
                 let is_file = d.metadata().ok().map_or(false, |m| m.is_file());
                 is_file && d.file_name().to_str().unwrap() == UTOCMETA
             })
-    }
-}
-
-pub struct ConvertExecutor;
-impl ConvertExecutor {
-
-    fn convert_none(
-        path: PathBuf,
-        bar: Progress,
-        assets: &[PathBuf],
-    ) -> GenericResult<()> {
-        let toc_path = path.join(UTOCMETA);
-        if std::fs::exists(toc_path.as_path())? {
-            std::fs::remove_file(toc_path.as_path())?;
-        }
-        for asset in assets {
-            let meta_path = path.join(asset).with_extension(UASSETMETA_EXTENSION);
-            if std::fs::exists(meta_path.as_path())? {
-                std::fs::remove_file(meta_path.as_path())?;
-            }
-            bar.set_message(asset.to_str().unwrap().to_owned());
-            bar.set_position(bar.position() + 1);
-        }
-        Ok(())
-    }
-
-    fn convert_per_asset(
-        path: PathBuf,
-        bar: Progress,
-        assets: &[PathBuf],
-        version: EngineVersion
-    ) -> GenericResult<()> {
-        let mut metadata = UtocMetadata::default();
-        let toc_path = path.join(UTOCMETA);
-        metadata.add_from_utocmeta(
-            std::fs::read(toc_path.as_path())?.as_ref(),
-            version)?;
-        std::fs::remove_file(toc_path.as_path())?;
-        for asset in assets {
-            let meta_path = path.join(asset).with_extension(UASSETMETA_EXTENSION);
-            let package_id = convert_to_package_id(path.join(asset), path.as_path(), None);
-            match metadata.get_manual_v2_import(package_id) {
-                Some(v) => {
-                    let mut writer = File::create(meta_path.as_path())?;
-                    writer.ser(&v)?;
-                },
-                None => {
-                    println!("{}: Could not get \"{}\" from utocmeta", console::style("Error:").red(), asset.to_str().unwrap());
-                }
-            }
-            bar.set_message(asset.to_str().unwrap().to_owned());
-            bar.set_position(bar.position() + 1);
-        }
-        Ok(())
-    }
-
-    fn convert_table(
-        path: PathBuf,
-        bar: Progress,
-        assets: &[PathBuf],
-        version: EngineVersion
-    ) -> GenericResult<()> {
-        let mut metadata = UtocMetadata::default();
-        let toc_path = path.join(UTOCMETA);
-        for asset in assets {
-            let meta_path = path.join(asset).with_extension(UASSETMETA_EXTENSION);
-            let package_id = convert_to_package_id(path.join(asset), path.as_path(), None);
-            metadata.add_from_uassetmeta(package_id, meta_path.as_ref())?;
-            std::fs::remove_file(meta_path.as_path())?;
-            bar.set_message(asset.to_str().unwrap().to_owned());
-            bar.set_position(bar.position() + 1);
-        }
-        let mut writer = BufWriter::new(File::create(toc_path)?);
-        metadata.serialize(&mut writer, version.container_header_version())?;
-        Ok(())
-    }
-
-
-    pub fn convert<P: AsRef<Path>>(
-        input: P,
-        fmt_from: AssetMetadata,
-        fmt_to: AssetMetadata,
-        assets: &[PathBuf],
-        version: EngineVersion,
-    ) -> GenericResult<()> {
-        let path = input.as_ref().to_owned();
-        let bar = Progress::new(assets.len() as u64)?;
-        match fmt_to {
-            AssetMetadata::None => Self::convert_none(path, bar, assets),
-            AssetMetadata::PerAsset => Self::convert_per_asset(path, bar, assets, version),
-            AssetMetadata::Table => Self::convert_table(path, bar, assets, version),
-        }
     }
 }

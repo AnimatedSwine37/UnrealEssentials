@@ -87,3 +87,15 @@ pub fn asset_path_to_package_id(asset_path: &str) -> FPackageId {
     let asset_path = asset_path[MOUNT_POINT.len() - 1..].rsplit_once('.').unwrap().0;
     FPackageId(lower_utf16_cityhash(asset_path))
 }
+
+#[derive(Debug)]
+pub struct AssetEntry {
+    pub os_path: PathBuf,
+    pub size: u64,
+}
+
+impl AssetEntry {
+    pub fn new(os_path: PathBuf, size: u64) -> Self {
+        Self { os_path, size }
+    }
+}

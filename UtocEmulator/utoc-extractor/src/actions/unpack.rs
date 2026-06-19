@@ -166,10 +166,9 @@ impl UnpackAction {
         if let Some(folder) = get_default_directory(ini.as_mut(), UNPACK_INPUT_KEY) {
             params.folder = folder;
         }
-        let path = PathBuf::from(params.folder);
         let result = wfd::open_dialog(params).map(|v| v.selected_file_path).ok();
-        if result.is_some() {
-            set_default_directory(Some(path.parent().unwrap()), ini.as_mut(), UNPACK_INPUT_KEY);
+        if let Some(result) = &result {
+            set_default_directory(Some(result.parent().unwrap()), ini.as_mut(), UNPACK_INPUT_KEY);
         }
         result
     }
@@ -196,10 +195,9 @@ impl UnpackAction {
         if let Some(folder) = get_default_directory(ini.as_mut(), UNPACK_OUTPUT_KEY) {
             params.folder = folder;
         }
-        let path = PathBuf::from(params.folder);
         let result = wfd::open_dialog(params).map(|v| v.selected_file_path).ok();
-        if result.is_some() {
-            set_default_directory(Some(path.as_path()), ini.as_mut(), UNPACK_OUTPUT_KEY);
+        if let Some(result) = &result {
+            set_default_directory(Some(result.as_path()), ini.as_mut(), UNPACK_OUTPUT_KEY);
         }
         result
     }

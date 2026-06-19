@@ -91,13 +91,99 @@ For **UE 5.3** and above, asset metadata is optional.
 
 ### Using the UTOC Extractor
 
+A UTOC unpacking tool is available in both command line and graphical form in `utoc-extractor`.
+
+*When performing an action for the first time, the program may freeze for several seconds while it downloads `oo2core_9_win64.dll` to allow for Oodle chunks to be decompressed. Additionally, the program comes with `config.ini` and `egui.ini` which are used by the [GUI](#gui).*
+
 #### CLI
 
-...
+The CLI is used if utoc-extractor is executed with one or more parameters.
+
+The following actions are available:
+
+```
+Usage: utoc-extractor.exe <COMMAND>
+
+Commands:
+  unpack
+  convert
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+The unpacker extracts assets from an IO Store archive and copies them as loose Zen assets into the output folder. The following arguments are usable by the unpacker:
+
+```
+Usage: utoc-extractor.exe unpack [OPTIONS] <INPUT>
+
+Arguments:
+  <INPUT>  The file path to the .utoc to extract
+
+Options:
+      --aes-key <AES_KEY>
+
+  -i, --include <INCLUDE>...
+          Define a set of paths in the archive to extract. If not specified, everything will be extracted
+  -m, --metadata <METADATA>
+          [possible values: none, table, per-asset]
+      --override-version <OVERRIDE_VERSION>
+          [possible values: UE4_25, UE4_26, UE4_27, UE5_0, UE5_1, UE5_2, UE5_3, UE5_4, UE5_5, UE5_6, UE5_7]
+      --root-name <ROOT_NAME>
+          Set the name of the root folder. By default, this is "Game"
+  -o, --output <OUTPUT>
+          The folder to extract into. By default, this will be a in a folder adjacent to the .utoc
+  -h, --help
+          Print help
+```
+
+**Notes**:
+- The `--root-name` option only applies if the mount point for the UTOC is at the root (`../../../`)
+
+The converter allows for switching between asset metadata types for the input mod. An example use case is for a larger mod either doesn't include metadata or  uses `.uassetmeta` can be converted to use a `.utocmeta` before creating a public release to improve the performance of UTOC Emulator.
+
+```
+Usage: utoc-extractor.exe convert --metadata <METADATA> --version <VERSION> <INPUT>
+
+Arguments:
+  <INPUT>  The file path to your mod folder's UnrealEssentials folder
+
+Options:
+  -m, --metadata <METADATA>  [possible values: none, table, per-asset]
+      --version <VERSION>    [possible values: UE4_25, UE4_26, UE4_27, UE5_0, UE5_1, UE5_2, UE5_3, UE5_4, UE5_5, UE5_6, UE5_7]
+  -h, --help                 Print help
+```
+
+**Notes**:
+- The action will not work if the engine version is set to below UE 5.3 and either the mod does not include metadata or the target metadata type is `none` due to the reasons mentioned in [Notes for Loose Zen Assets](#notes-for-loose-zen-assets)
+- Only one asset metadata type is expected to exist in the mod, either a `.uassetmeta` *for each* `.uasset` or one `.utocmeta` inside the base `UnrealEssentials` folder
+- If the current metadata type for the mod is the same as the targeted type in the command, then the action will not work since there is nothing to do
+
 
 #### GUI
 
-...
+The GUI opens if utoc-extractor is executed without any parameters or is opened from your file explorer, showing the "Unpack" action by default:
+
+![](assets/utoc-extractor_rYYRYzf4no.png)
+
+When a `.utoc` is selected, a tree layout is constructed to display the layout of the IO Store Archive. You can select certain folders to be included or excluded from the unpacked output by clicking on the checkbox next to the directory/file name.
+
+When unpacked, the file structure is automatically constructed to match the path layout needed by UTOC Emulator.
+
+![](assets/utoc-extractor_gBwZQnG4mC.png)
+
+The "Convert Metadata" action allows for conversion between asset metadata types in the same way as the CLI:
+
+![](assets/utoc-extractor_q4z0UqCUHY.png)
+
+Along with the executable are two INI files named `config.ini` and `egui.ini`.
+`config.ini` allows for engine versions to be defined, which the metadata converter will automatically use if
+the root folder of the package matches a certain name. In the example provided, if the path starts with P3R
+(e.g `P3R/Content/Xrd777/...`) then the converter selects UE 4.27.
+
+`egui.ini` stores the last directory location for each of the file/directory dialogs. Usually, when a file dialog is opened, Windows will always use the location of the last selected directory/file within the program as the starting directory. This can be inconvenient when switching between the unpack input and output, which may point to distant parts of your file system (unpack input in your UE project/Game's `Content/Paks` and unpack output in your mod's UnrealEssentials folder).
 
 ## Credits
 - **[trumank](https://github.com/trumank)** and **[Archengius](https://github.com/Archengius)** - Developers of [retoc](https://github.com/trumank/retoc/), the serialization library used by UTOC Emulator
+- **[Ray Cooper](https://github.com/raycopper)** - Testing with several production UE5 games

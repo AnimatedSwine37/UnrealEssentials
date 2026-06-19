@@ -1,9 +1,9 @@
 use std::fs::File;
 use std::io::{BufReader, Cursor};
 use std::ops::Deref;
-use std::path::{Component, PathBuf};
-use clap::{Parser, ValueEnum};
-use retoc::{AesKey, Config, EIoChunkType, FGuid, Toc, UEPath, UEPathBuf};
+use std::path::PathBuf;
+use clap::Parser;
+use retoc::{AesKey, Config, EIoChunkType, FGuid, Toc};
 use retoc::version::EngineVersion;
 use crate::GenericResult;
 use std::str::FromStr;
@@ -13,34 +13,15 @@ use console::{Style, Term};
 use indicatif::{ProgressBar, ProgressStyle};
 use retoc::container_header::{EIoContainerHeaderVersion, FIoContainerHeader};
 use retoc::file_pool::FilePool;
-use retoc::ser::{ReadExt, WriteExt, Writeable};
-use retoc::zen::FZenPackageSummary;
+use retoc::ser::{ReadExt, WriteExt};
 use walkdir::WalkDir;
 use utoc_lib::assets::UASSETMETA_EXTENSION;
 use utoc_lib::metadata::UtocMetadata;
-use utoc_lib::store::{get_asset_exports_new, get_asset_exports_old};
-use crate::common::{convert_to_ue_path, get_root_path, AssetMetadata, ConvertExecutor, FilterByAsset};
+use crate::actions::convert::ConvertExecutor;
+use crate::common::{convert_to_ue_path, get_root_path, AssetMetadata, FilterByAsset};
 
 #[derive(Parser, Debug)]
 struct Args {
-    /*
-    // #[arg(short, long)]
-    #[arg(help = "The file path to the .utoc to extract")]
-    input: String,
-    #[arg(long)]
-    aes_key: Option<String>,
-    #[arg(short, long, num_args = 1.., value_delimiter = ',', help = "Define a set of paths in the archive to extract. If not specified, everything will be extracted")]
-    include: Vec<String>,
-    #[arg(short, long)]
-    metadata: Option<AssetMetadata>,
-    #[arg(long)]
-    override_version: Option<EngineVersion>,
-    #[arg(long, help = "Set the name of the root folder. By default, this is \"Game\"")]
-    root_name: Option<String>,
-    #[arg(short, long)]
-    #[arg(help = "The folder to extract into. By default, this will be a in a folder adjacent to the .utoc")]
-    output: Option<String>
-    */
     #[command(subcommand)]
     action: Action
 }
@@ -241,11 +222,12 @@ fn convert(args: ConvertArgs) -> GenericResult<()> {
     } else {
         AssetMetadata::None
     };
-    /*
     if current_format == AssetMetadata::None && args.version < EngineVersion::UE5_3 {
         return Err(anyhow!("Cannot convert metadata if there is no existing metadata").into_boxed_dyn_error());
     }
-    */
+    if args.metadata == current_format {
+        return Err(anyhow!(format!("Asset metadata is already in the format {:?}!", args.metadata)).into_boxed_dyn_error());
+    }
     ConvertExecutor::convert(
         input.as_path(),
         current_format,

@@ -1,9 +1,14 @@
 use std::{
     sync::Mutex
 };
+use std::io::{Read, Seek};
 use std::ops::{Deref, DerefMut};
 use std::sync::MutexGuard;
-use utoc_lib::metadata::UtocMetadata;
+use retoc::container_header::StoreEntry;
+use retoc::FPackageId;
+use retoc::zen::{ExternalPackageDependency, FZenPackageSummary};
+use utoc_lib::metadata::{UtocMetaImportType, UtocMetadata};
+use utoc_lib::store::{LegacyImportIdResolver, MetadataProvider};
 
 pub static UTOC_METADATA: MetadataState = MetadataState::new();
 
@@ -36,5 +41,29 @@ impl Deref for MetadataState {
 impl DerefMut for MetadataState {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+pub struct MetadataAdapter;
+impl MetadataProvider for MetadataAdapter {
+    fn check_v2_import(&self, package_id: FPackageId) -> Option<StoreEntry> {
+        MetadataState::instance().as_ref().unwrap()
+            .get_manual_v2_import(package_id)
+    }
+    fn get_imports_ue4<T: Read + Seek>(
+        &self,
+        store_entry: &mut StoreEntry,
+        reader: &mut T,
+        package_id: FPackageId,
+        package_header: &FZenPackageSummary,
+        package_dependencies: &[ExternalPackageDependency],
+    ) {
+        let metadata = MetadataState::instance();
+        store_entry.imported_packages = match metadata.as_ref().unwrap().get_import_type(package_id) {
+            UtocMetaImportType::GraphPackageUnvalidated => LegacyImportIdResolver::from_graph_packages_unvalidated(&package_dependencies),
+            UtocMetaImportType::GraphPackageValidated => LegacyImportIdResolver::from_graph_packages_validated(reader, &package_header, &package_dependencies),
+            UtocMetaImportType::ManualV1 => LegacyImportIdResolver::from_metadata_v1(metadata.as_ref().unwrap(), package_id),
+            UtocMetaImportType::ManualV2 => unreachable!()
+        }
     }
 }

@@ -12,13 +12,13 @@ internal class UtocMethods
     private Context _context;
     
     private readonly MultiHook<GetPakSigningKeys> _getSigningKeysHook;
-    private readonly MultiHook<FAsyncPackage2_StartLoading0> _startLoading0;
-    private readonly MultiHook<FAsyncPackage2_StartLoading1> _startLoading1;
-    private readonly MultiHook<FAsyncPackage2_StartLoading2> _startLoading2;
-    private readonly MultiHook<FAsyncPackage2_StartLoading3> _startLoading3;
-    private readonly MultiHook<FAsyncPackage2_StartLoading4> _startLoading4;
-    private readonly MultiHook<FAsyncPackage2_StartLoading5> _startLoading5;
-    private readonly MultiHook<FAsyncPackage2_StartLoading6> _startLoading6;
+    private readonly MultiHook<FAsyncPackage2_StartLoading0>? _startLoading0;
+    private readonly MultiHook<FAsyncPackage2_StartLoading1>? _startLoading1;
+    private readonly MultiHook<FAsyncPackage2_StartLoading2>? _startLoading2;
+    private readonly MultiHook<FAsyncPackage2_StartLoading3>? _startLoading3;
+    private readonly MultiHook<FAsyncPackage2_StartLoading4>? _startLoading4;
+    private readonly MultiHook<FAsyncPackage2_StartLoading5>? _startLoading5;
+    private readonly MultiHook<FAsyncPackage2_StartLoading6>? _startLoading6;
 
     private const string PackageStartLoading = "FAsyncPackage2::StartLoading";
 
@@ -75,7 +75,7 @@ internal class UtocMethods
         {
             Log($"StartLoading: {DiskName}");    
         }
-        _startLoading0.Hook!.OriginalFunction(Self);
+        _startLoading0!.Hook!.OriginalFunction(Self);
     }
     
     internal unsafe delegate void FAsyncPackage2_StartLoading1(Native.FAsyncPackage2_UE5_0* Self, nint IoBatch);
@@ -86,7 +86,7 @@ internal class UtocMethods
         {
             Log($"StartLoading: {DiskName}");    
         }
-        _startLoading1.Hook!.OriginalFunction(Self, IoBatch);
+        _startLoading1!.Hook!.OriginalFunction(Self, IoBatch);
     }
     
     internal unsafe delegate void FAsyncPackage2_StartLoading2(Native.FAsyncPackage2_UE5_1* Self, nint IoBatch);
@@ -97,7 +97,7 @@ internal class UtocMethods
         {
             Log($"StartLoading: {DiskName}");    
         }
-        _startLoading2.Hook!.OriginalFunction(Self, IoBatch);
+        _startLoading2!.Hook!.OriginalFunction(Self, IoBatch);
     }
     
     internal unsafe delegate void FAsyncPackage2_StartLoading3(Native.FAsyncPackage2_UE5_3* Self, nint ThreadState, nint IoBatch);
@@ -108,7 +108,7 @@ internal class UtocMethods
         {
             Log($"StartLoading: {DiskName}");    
         }
-        _startLoading3.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
+        _startLoading3!.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
     }
     
     internal unsafe delegate void FAsyncPackage2_StartLoading4(Native.FAsyncPackage2_UE5_4* Self, nint ThreadState, nint IoBatch);
@@ -119,7 +119,7 @@ internal class UtocMethods
         {
             Log($"StartLoading: {DiskName}");
         }
-        _startLoading4.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
+        _startLoading4!.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
     }
     
     internal unsafe delegate void FAsyncPackage2_StartLoading5(Native.FAsyncPackage2_UE5_6* Self, nint ThreadState, nint IoBatch);
@@ -130,7 +130,7 @@ internal class UtocMethods
         {
             Log($"StartLoading: {DiskName}");    
         }
-        _startLoading5.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
+        _startLoading5!.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
     }
     
     internal unsafe delegate void FAsyncPackage2_StartLoading6(Native.FAsyncPackage2_UE5_7* Self, nint ThreadState, nint IoBatch);
@@ -141,6 +141,6 @@ internal class UtocMethods
         {
             Log($"StartLoading: {DiskName}");    
         }
-        _startLoading6.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
+        _startLoading6!.Hook!.OriginalFunction(Self, ThreadState, IoBatch);
     }
 }

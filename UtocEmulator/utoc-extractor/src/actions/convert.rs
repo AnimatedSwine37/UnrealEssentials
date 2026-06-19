@@ -1,5 +1,6 @@
-use std::fs::{File, ReadDir};
-use std::io::BufWriter;
+use std::fs::File;
+use std::io::{BufWriter, Read, Seek};
+use std::ops::{Deref, DerefMut};
 use std::path::{Component, Path, PathBuf};
 use std::time::Instant;
 use anyhow::anyhow;
@@ -7,16 +8,21 @@ use chrono::Utc;
 use egui::{Align, Button, ComboBox, Layout, RichText, TextStyle, Ui};
 use egui_extras::{Column, TableBuilder};
 use ini::Ini;
+use retoc::container_header::{EIoContainerHeaderVersion, StoreEntry};
+use retoc::FPackageId;
 use retoc::ser::{WriteExt, Writeable};
 use retoc::version::EngineVersion;
+use retoc::zen::{ExternalPackageDependency, FZenPackageSummary};
 #[cfg(not(target_os = "windows"))]
 use rfd::FileDialog;
-use walkdir::{DirEntry, WalkDir};
+use walkdir::WalkDir;
 #[cfg(target_os = "windows")]
-use wfd::{ DialogParams, FOS_PICKFOLDERS };
-use utoc_lib::assets::{asset_path_to_package_id, convert_to_asset_path, convert_to_package_id, UASSETMETA_EXTENSION, UASSET_EXTENSION, UMAP_EXTENSION, UTOCMETA};
-use utoc_lib::metadata::UtocMetadata;
-use crate::common::{convert_to_ue_path, get_config, get_default_directory, set_default_directory, try_get_user_config, ActionInfo, AssetMetadata, ConvertExecutor, FilePicker, FilterByAsset, UIComponent};
+use wfd::{DialogParams, FOS_PICKFOLDERS};
+use utoc_lib::assets::{convert_to_package_id, AssetEntry, UASSETMETA_EXTENSION, UTOCMETA};
+use utoc_lib::metadata::{UtocMetaImportType, UtocMetadata};
+use utoc_lib::store::{LegacyImportIdResolver, MetadataProvider, StoreEntryBuilder, StoreEntryBuilderOld, StoreEntryBuilderNew, os_file_size};
+use crate::cli::Progress;
+use crate::common::{get_default_directory, set_default_directory, try_get_user_config, ActionInfo, AssetMetadata, FilePicker, FilterByAsset, UIComponent};
 use crate::GenericResult;
 use crate::gui::AppAction;
 
@@ -56,8 +62,8 @@ impl ConvertAction {
             params.folder = folder;
         }
         let result = wfd::open_dialog(params).map(|v| v.selected_file_path).ok();
-        if result.is_some() {
-            set_default_directory(Some(result.as_ref()?), ini.as_mut(), CONVERT_INPUT_KEY);
+        if let Some(result) = &result {
+            set_default_directory(Some(result.as_path()), ini.as_mut(), CONVERT_INPUT_KEY);
         }
         result
     }
@@ -273,5 +279,186 @@ impl AppAction for ConvertAction {
                 }
             });
         });
+    }
+}
+
+#[derive(Debug)]
+pub struct ConvertMetadata(UtocMetadata);
+
+impl MetadataProvider for ConvertMetadata {
+    fn check_v2_import(&self, package_id: FPackageId) -> Option<StoreEntry> {
+        self.0.get_manual_v2_import(package_id)
+    }
+    fn get_imports_ue4<T: Read + Seek>(
+        &self,
+        store_entry: &mut StoreEntry,
+        reader: &mut T,
+        package_id: FPackageId,
+        package_header: &FZenPackageSummary,
+        package_dependencies: &[ExternalPackageDependency]) {
+        store_entry.imported_packages = match self.0.get_import_type(package_id) {
+            UtocMetaImportType::GraphPackageUnvalidated => LegacyImportIdResolver::from_graph_packages_unvalidated(&package_dependencies),
+            UtocMetaImportType::GraphPackageValidated => LegacyImportIdResolver::from_graph_packages_validated(reader, &package_header, &package_dependencies),
+            UtocMetaImportType::ManualV1 => LegacyImportIdResolver::from_metadata_v1(&self.0, package_id),
+            UtocMetaImportType::ManualV2 => unreachable!()
+        }
+    }
+}
+
+impl Deref for ConvertMetadata {
+    type Target = UtocMetadata;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for ConvertMetadata {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Default for ConvertMetadata {
+    fn default() -> Self {
+        Self(UtocMetadata::default())
+    }
+}
+
+pub struct ConvertExecutor;
+
+impl ConvertExecutor {
+
+    fn convert_none(
+        path: PathBuf,
+        bar: Progress,
+        assets: &[PathBuf],
+    ) -> GenericResult<()> {
+        let toc_path = path.join(UTOCMETA);
+        if std::fs::exists(toc_path.as_path())? {
+            std::fs::remove_file(toc_path.as_path())?;
+        }
+        for asset in assets {
+            let meta_path = path.join(asset).with_extension(UASSETMETA_EXTENSION);
+            if std::fs::exists(meta_path.as_path())? {
+                std::fs::remove_file(meta_path.as_path())?;
+            }
+            bar.set_message(asset.to_str().unwrap().to_owned());
+            bar.set_position(bar.position() + 1);
+        }
+        Ok(())
+    }
+
+    fn convert_per_asset(
+        path: PathBuf,
+        bar: Progress,
+        from: AssetMetadata,
+        assets: &[PathBuf],
+        version: EngineVersion
+    ) -> GenericResult<()> {
+        let mut metadata = ConvertMetadata::default();
+        match from {
+            AssetMetadata::Table => {
+                let toc_path = path.join(UTOCMETA);
+                metadata.add_from_utocmeta(
+                    std::fs::read(toc_path.as_path())?.as_ref(),
+                    version)?;
+                std::fs::remove_file(toc_path.as_path())?;
+                for asset in assets {
+                    let meta_path = path.join(asset).with_extension(UASSETMETA_EXTENSION);
+                    let package_id = convert_to_package_id(path.join(asset), path.as_path(), None);
+                    match metadata.get_manual_v2_import(package_id) {
+                        Some(v) => {
+                            let mut writer = File::create(meta_path.as_path())?;
+                            writer.ser(&v)?;
+                        },
+                        None => {
+                            println!("{}: Could not get \"{}\" from utocmeta", console::style("Error:").red(), asset.to_str().unwrap());
+                        }
+                    }
+                    bar.set_message(asset.to_str().unwrap().to_owned());
+                    bar.set_position(bar.position() + 1);
+                }
+            },
+            AssetMetadata::None => {
+                for asset in assets {
+                    let meta_path = path.join(asset).with_extension(UASSETMETA_EXTENSION);
+                    let asset_path = path.join(asset);
+                    let file_size = os_file_size(&asset_path.metadata()?);
+                    let asset_entry = AssetEntry::new(asset_path, file_size);
+                    let package_id = convert_to_package_id(path.join(asset), path.as_path(), None);
+                    let store = match version.container_header_version() {
+                        EIoContainerHeaderVersion::Initial =>
+                            StoreEntryBuilderOld::rebuild_store_entry(&asset_entry, package_id, version.container_header_version(), &metadata)?,
+                        _ => StoreEntryBuilderNew::rebuild_store_entry(&asset_entry, package_id, version.container_header_version(), &metadata)?
+                    };
+                    let mut meta_file = File::create(meta_path.as_path())?;
+                    store.ser(&mut meta_file)?;
+                    bar.set_message(asset.to_str().unwrap().to_owned());
+                    bar.set_position(bar.position() + 1);
+                }
+            },
+            AssetMetadata::PerAsset => unreachable!()
+        }
+        Ok(())
+    }
+
+    fn convert_table(
+        path: PathBuf,
+        bar: Progress,
+        from: AssetMetadata,
+        assets: &[PathBuf],
+        version: EngineVersion
+    ) -> GenericResult<()> {
+        let mut metadata = ConvertMetadata::default();
+        let toc_path = path.join(UTOCMETA);
+        match from {
+            AssetMetadata::PerAsset => {
+                for asset in assets {
+                    let meta_path = path.join(asset).with_extension(UASSETMETA_EXTENSION);
+                    let package_id = convert_to_package_id(path.join(asset), path.as_path(), None);
+                    metadata.add_from_uassetmeta(package_id, meta_path.as_ref())?;
+                    std::fs::remove_file(meta_path.as_path())?;
+                    bar.set_message(asset.to_str().unwrap().to_owned());
+                    bar.set_position(bar.position() + 1);
+                }
+            },
+            AssetMetadata::None => {
+                for asset in assets {
+                    let asset_path = path.join(asset);
+                    let file_size = os_file_size(&asset_path.metadata()?);
+                    let asset_entry = AssetEntry::new(asset_path, file_size);
+                    let package_id = convert_to_package_id(path.join(asset), path.as_path(), None);
+                    let store = match version.container_header_version() {
+                        EIoContainerHeaderVersion::Initial =>
+                            StoreEntryBuilderOld::rebuild_store_entry(&asset_entry, package_id, version.container_header_version(), &metadata)?,
+                        _ => StoreEntryBuilderNew::rebuild_store_entry(&asset_entry, package_id, version.container_header_version(), &metadata)?
+                    };
+                    metadata.add_from_store_entry(package_id, store)?;
+                    bar.set_message(asset.to_str().unwrap().to_owned());
+                    bar.set_position(bar.position() + 1);
+                }
+            },
+            AssetMetadata::Table => unreachable!()
+        }
+        let mut writer = BufWriter::new(File::create(toc_path)?);
+        metadata.serialize(&mut writer, version.container_header_version())?;
+        Ok(())
+    }
+
+
+    pub fn convert<P: AsRef<Path>>(
+        input: P,
+        fmt_from: AssetMetadata,
+        fmt_to: AssetMetadata,
+        assets: &[PathBuf],
+        version: EngineVersion,
+    ) -> GenericResult<()> {
+        let path = input.as_ref().to_owned();
+        let bar = Progress::new(assets.len() as u64)?;
+        match fmt_to {
+            AssetMetadata::None => Self::convert_none(path, bar, assets),
+            AssetMetadata::PerAsset => Self::convert_per_asset(path, bar, fmt_from, assets, version),
+            AssetMetadata::Table => Self::convert_table(path, bar, fmt_from, assets, version),
+        }
     }
 }

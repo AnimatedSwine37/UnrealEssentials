@@ -1,26 +1,12 @@
 use std::collections::HashMap;
-use std::fs::Metadata;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
-use retoc::{lower_utf16_cityhash, FPackageId};
 use retoc::version::EngineVersion;
 use walkdir::{DirEntry, WalkDir};
 use utoc_lib::assets::*;
-use utoc_lib::metadata::UtocMetadata;
-use crate::{log, GenericResult};
+use utoc_lib::store::os_file_size;
+use crate::GenericResult;
 use crate::metadata::MetadataState;
-
-#[derive(Debug)]
-pub struct AssetEntry {
-    pub(crate) os_path: PathBuf,
-    pub(crate) size: u64,
-}
-
-impl AssetEntry {
-    pub fn new(os_path: PathBuf, size: u64) -> Self {
-        Self { os_path, size }
-    }
-}
 
 type AssetListMap = HashMap<String, AssetEntry>;
 pub static ASSET_LIST: Mutex<Option<AssetListMap>> = Mutex::new(None);
@@ -58,16 +44,6 @@ impl AssetCollection {
         )
     }
 
-    #[cfg(target_os = "linux")]
-    fn os_file_size(metadata: &Metadata) -> u64 {
-        std::os::linux::fs::MetadataExt::st_size(&meta)
-    }
-
-    #[cfg(target_os = "windows")]
-    fn os_file_size(metadata: &Metadata) -> u64 {
-        std::os::windows::fs::MetadataExt::file_size(metadata)
-    }
-
     /// Recursively registers all the assets inside of a folder into the asset list to get replaced.
     /// If you are working with an asset type that can be partially written to such as a data table,
     /// use UE Toolkit (https://github.com/RyoTune/UE.Toolkit) as it allows for file merging
@@ -89,7 +65,7 @@ impl AssetCollection {
                 },
                 Some(_) => {
                     let asset_path = convert_to_asset_path(&os_path, path.as_path(), mount.as_ref());
-                    let file_size = Self::os_file_size(&file.metadata()?);
+                    let file_size = os_file_size(&file.metadata()?);
                     Self::instance().as_mut().unwrap().insert(asset_path, AssetEntry::new(os_path, file_size));
                 },
                 None => match os_path.file_name().map(|f| f.to_str().unwrap()) {

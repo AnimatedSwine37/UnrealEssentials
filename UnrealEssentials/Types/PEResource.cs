@@ -1,5 +1,7 @@
 ﻿namespace UnrealEssentials.Types;
 
+#pragma warning disable CS0649
+
 internal struct LanguageCodePage
 {
     internal short wLanguage;
@@ -22,3 +24,5 @@ internal struct FixedFileInfo
     internal uint dwFileDateMS;
     internal uint dwFileDateLS;
 }
+
+#pragma warning restore CS0649
