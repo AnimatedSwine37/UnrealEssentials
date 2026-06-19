@@ -1,6 +1,10 @@
+pub(crate) mod actions {
+    pub(crate) mod convert;
+    pub(crate) mod unpack;
+}
 pub(crate) mod cli;
-pub(crate) mod gui;
 pub(crate) mod common;
+pub(crate) mod gui;
 
 use std::error::Error;
 

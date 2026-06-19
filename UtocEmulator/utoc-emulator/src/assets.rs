@@ -68,33 +68,6 @@ impl AssetCollection {
         std::os::windows::fs::MetadataExt::file_size(metadata)
     }
 
-    /// The input path is expected to be relative to the UnrealEssentials folder:
-    /// e.g The path's value should be P3R/Content/...
-    pub(crate) fn convert_to_asset_path<P0, P1>(path: P0, base: P1, vpath: Option<&PathBuf>) -> String
-    where P0: AsRef<Path>, P1: AsRef<Path> {
-        let path = {
-            let path = path.as_ref().strip_prefix(base.as_ref()).unwrap().to_str().unwrap().to_owned();
-            if cfg!(target_os = "windows") {
-                path.replace("\\", "/")
-            } else {
-                path
-            }
-        };
-        let parts: Vec<&str> = path.splitn(3, "/").collect();
-        // check that path is that long
-        let domain = match parts[0] {
-            ENGINE_DOMAIN => ENGINE_DOMAIN,
-            _ => "Game"
-        };
-        match vpath {
-            Some(v) => {
-                let vpath = v.to_str().unwrap();
-                format!("../../../{}/{}/{}", vpath, domain, parts[2])
-            },
-            None => format!("../../../{}/{}", domain, parts[2])
-        }
-    }
-
     /// Recursively registers all the assets inside of a folder into the asset list to get replaced.
     /// If you are working with an asset type that can be partially written to such as a data table,
     /// use UE Toolkit (https://github.com/RyoTune/UE.Toolkit) as it allows for file merging
@@ -110,13 +83,12 @@ impl AssetCollection {
             let os_path = file.path().to_owned();
             match os_path.extension().map(|s| s.to_str().unwrap()) {
                 Some(UASSETMETA_EXTENSION) => {
-                    let asset_path = Self::convert_to_asset_path(&os_path, path.as_path(), mount.as_ref());
-                    let asset_path_tr = asset_path[MOUNT_POINT.len() - 1..].rsplit_once('.').unwrap().0;
+                    let asset_path = convert_to_asset_path(&os_path, path.as_path(), mount.as_ref());
                     MetadataState::instance().as_mut().unwrap().add_from_uassetmeta(
-                        FPackageId(lower_utf16_cityhash(asset_path_tr)), os_path.as_path())?;
+                        asset_path_to_package_id(&asset_path), os_path.as_path())?;
                 },
                 Some(_) => {
-                    let asset_path = Self::convert_to_asset_path(&os_path, path.as_path(), mount.as_ref());
+                    let asset_path = convert_to_asset_path(&os_path, path.as_path(), mount.as_ref());
                     let file_size = Self::os_file_size(&file.metadata()?);
                     Self::instance().as_mut().unwrap().insert(asset_path, AssetEntry::new(os_path, file_size));
                 },
