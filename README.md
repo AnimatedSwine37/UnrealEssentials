@@ -8,6 +8,7 @@ A mod for [Reloaded-II](https://reloaded-project.github.io/Reloaded-II/) that ma
 - Logging file access
 - Support for UE 4.25-4.27 and UE 5 (see [Supported Games](#supported-games) for more details)
 - API for adding file replacements from code (see [documentation](/UnrealEssentials.Interfaces/README.md))
+- Tool for unpacking IO Store archives with asset metadata (see [Using the UTOC Extractor](#using-the-utoc-extractor))
 
 ## Planned Features
 - Support for older UE4 versions
