@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader, Cursor};
 use std::path::{Component, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use anyhow::{anyhow, Context};
 use chrono::Utc;
 use eframe::emath::Align;
@@ -120,6 +120,35 @@ impl TocEntry {
     }
 }
 
+pub struct Debounce {
+    last_trigger: Option<Instant>,
+    duration: Duration,
+}
+
+impl Debounce {
+    pub fn new(ms: u64) -> Self {
+        Self {
+            last_trigger: None,
+            duration: Duration::from_millis(ms),
+        }
+    }
+
+    pub fn fire(&mut self) {
+        self.last_trigger = Some(Instant::now());
+    }
+
+    pub fn update(&mut self) -> bool {
+        if let Some(last) = &self.last_trigger {
+            let now = Instant::now();
+            if now.duration_since(*last) > self.duration {
+                self.last_trigger = None;
+                return true;
+            }
+        }
+        false
+    }
+}
+
 // #[derive(Debug)]
 pub struct UnpackAction {
     input: FilePicker,
@@ -133,6 +162,7 @@ pub struct UnpackAction {
     toc: Option<Toc>,
     toc_root: Option<TocEntry>,
     info: Option<ActionInfo>,
+    aes_key_reload: Debounce,
 }
 
 const UNPACK_INPUT_TITLE: &'static str = "Select UTOC to unpack";
@@ -217,6 +247,7 @@ impl Default for UnpackAction {
             toc: None,
             toc_root: None,
             info: None,
+            aes_key_reload: Debounce::new(250)
         }
     }
 }
@@ -446,6 +477,21 @@ impl UnpackAction {
         }
         Ok(())
     }
+
+    fn load_utoc_gui(&mut self) {
+        self.info = match self.load_utoc() {
+            Ok(_) => {
+                if self.output.path.is_empty() {
+                    let in_path = self.input.get_path();
+                    let name = in_path.file_stem().unwrap().to_str().unwrap();
+                    self.output.path = in_path.parent().unwrap()
+                        .join(name).to_str().unwrap().to_string();
+                }
+                None
+            },
+            Err(e) => Some(ActionInfo::error(format!("Failed to load UTOC: {}", e.to_string())))
+        }
+    }
 }
 
 impl AppAction for UnpackAction {
@@ -454,27 +500,20 @@ impl AppAction for UnpackAction {
             ui.label(RichText::new(&err.text)
                 .color(err.color));
         }
-        if self.input.ui(ui) {
-            self.info = match self.load_utoc() {
-                Ok(_) => {
-                    if self.output.path.is_empty() {
-                        let in_path = self.input.get_path();
-                        let name = in_path.file_stem().unwrap().to_str().unwrap();
-                        self.output.path = in_path.parent().unwrap()
-                            .join(name).to_str().unwrap().to_string();
-                    }
-                    None
-                },
-                Err(e) => Some(ActionInfo::error(format!("Failed to load UTOC: {}", e.to_string())))
-            }
+        if self.input.ui(ui) || self.aes_key_reload.update() {
+            self.load_utoc_gui();
         }
         self.output.ui(ui);
         ui.separator();
         ui.horizontal(|ui| {
             ui.label("AES Key: ");
-            ui.add(TextEdit::singleline(&mut self.aes_key)
+            if ui.add(TextEdit::singleline(&mut self.aes_key)
                 .desired_width(ui.max_rect().width())
-                .char_limit(66));
+                .char_limit(66)).changed() &&
+                self.aes_key.len() == 66 &&
+                self.aes_key.starts_with("0x") {
+                    self.aes_key_reload.fire();
+            }
         });
         if self.aes_key.len() > 0 && (!self.aes_key.starts_with("0x") || self.aes_key.len() != 66) {
             ui.label(RichText::new(

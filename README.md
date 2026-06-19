@@ -22,6 +22,7 @@ If you know of a game that doesn't work you can create an [issue](https://github
 | Game       | UE Version | Support      |
 |------------|-|------------|
 | [Clair Obscur: Expedition 33](https://store.steampowered.com/app/1903340/Clair_Obscur_Expedition_33/) | 5.4 |
+| [CRISIS CORE -FINAL FANTASY VII- REUNION](https://store.steampowered.com/app/1608070/CRISIS_CORE_FINAL_FANTASY_VII_REUNION/) | 4.27 |
 | [DRAGON BALL: Sparking! ZERO](https://store.steampowered.com/app/1790600/DRAGON_BALL_Sparking_ZERO/) | 5.1 |
 | [Hi-Fi Rush](https://store.steampowered.com/app/1817230/HiFi_RUSH/)       | 4.27 | Requires [hibiki-bootstrap](https://github.com/akmubi/hibiki-bootstrap) |
 | [Hogwarts Legacy](https://store.steampowered.com/app/990080/Hogwarts_Legacy/) | 4.27 |
