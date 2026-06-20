@@ -51,6 +51,8 @@ env:
 
 jobs:
   build:
+    permissions:
+      id-token: write  # enable GitHub OIDC token issuance for this job
     runs-on: windows-latest
     defaults:
       run:
@@ -150,12 +152,18 @@ jobs:
           ${{ env.PUBLISH_GITHUB_UE_PATH }}/*
           ${{ env.PUBLISH_GITHUB_UTOC_PATH }}/*
           ${{ env.PUBLISH_UTOC_TOOL_PATH }}/*
+
+    - name: NuGet login (OIDC → temp API key)
+      uses: NuGet/login@v1
+      id: login
+      with:
+        user: ${{ secrets.NUGET_USER }}
         
     - name: Push to NuGet (on Tag)
       env: 
         UE_NUGET_KEY: ${{ secrets.RELOADED_UE_NUGET_KEY }}
         UTOC_NUGET_KEY: ${{ secrets.RELOADED_UTOC_NUGET_KEY }}
-        INTERFACE_NUGET_KEY: ${{ secrets.INTERFACE_NUGET_KEY }}
+        INTERFACE_NUGET_KEY: ${{steps.login.outputs.NUGET_API_KEY}}
       if: env.IS_RELEASE == 'true'
       run: |
         $items = Get-ChildItem -Path "$env:PUBLISH_NUGET_UE_PATH" -Include "*.nupkg" -Recurse
