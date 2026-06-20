@@ -1,0 +1,6 @@
+# Rune Factory: Guardians of Azuma
+EngineVersion: "UE_5_4"
+# can't use the executable name since that's just Game-Win64-Shipping LMAO
+ProductName: "Rune Factory: Guardians of Azuma"
+Signatures:
+  FileIoStoreOpenContainer: "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0"

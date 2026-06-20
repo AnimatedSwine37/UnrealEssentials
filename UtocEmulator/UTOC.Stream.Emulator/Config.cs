@@ -14,7 +14,7 @@ namespace UTOC.Stream.Emulator.Configuration
 
         [DisplayName("Dump Emulated IO Store Files")]
         [Description("Creates a dump of emulated IO Store files (.utoc + .ucas) as they are written.")]
-        [DefaultValue(LogSeverity.Information)]
+        [DefaultValue(false)]
         public bool DumpFiles { get; set; } = false;
     }
 

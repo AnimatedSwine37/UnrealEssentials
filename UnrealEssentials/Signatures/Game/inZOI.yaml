@@ -1,0 +1,7 @@
+# inZOI
+EngineVersion: "UE_5_6"
+ExecutableName: "inZOI-<DistVersion>-Shipping"
+Signatures:
+    GetPakSigningKeys: 
+        signatures: "E8 ?? ?? ?? ?? 39 78 ?? 74 ?? 48 8B 08 48 85 C9 74 ?? 48 8B 01 FF 50 ?? 84 C0 74 ?? F6 C3 04"
+        transforms: GetIndirectAddressShort

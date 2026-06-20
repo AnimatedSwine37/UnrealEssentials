@@ -4,7 +4,7 @@ using static UnrealEssentials.Unreal.UnrealMemory;
 namespace UnrealEssentials.Unreal;
 internal unsafe class UnrealArray
 {
-    internal struct TArray<T> : IEnumerable<T>
+    internal struct TArray<T> : IEnumerable<T> where T: unmanaged
     {
         internal T* Values;
         internal int Length;
@@ -39,7 +39,7 @@ internal unsafe class UnrealArray
         }
     }
 
-    public class TArrayEnumerator<T> : IEnumerator<T>
+    public class TArrayEnumerator<T> : IEnumerator<T> where T: unmanaged
     {
         private T* _values;
         private int _length;

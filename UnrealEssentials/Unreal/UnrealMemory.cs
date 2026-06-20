@@ -18,15 +18,19 @@ public unsafe class UnrealMemory : IUnrealMemory
     private QuantizeSizeDelegate? _quantizeSize;
     private GetAllocationSizeDelegate? _getAllocationSize;
     private TrimDelegate? _trim;
+    
+    private static MultiSignature GMallocSignature;
 
-    internal UnrealMemory(string gMallocSig, IReloadedHooks hooks)
+    private readonly bool _allowExecuteCommands;
+    private readonly ObjectCommandExecutorType _commandExecutorType;
+
+    internal UnrealMemory(Signatures sigs, IReloadedHooks hooks, bool allowExecuteCommands, 
+        ObjectCommandExecutorType commandExecutorType)
     {
         _hooks = hooks;
-        SigScan(gMallocSig, "GMallocPtr", address =>
-        {
-            _gMalloc = (FMalloc**)GetGlobalAddress(address + 3);
-            LogDebug($"Found GMalloc at 0x{(nuint)_gMalloc:X}");
-        });
+        _allowExecuteCommands = allowExecuteCommands;
+        _commandExecutorType = commandExecutorType;
+        GMallocSignature = new("GMalloc", sigs.GMalloc, address => _gMalloc = (FMalloc**)address);
     }
 
     private void SetupWrappers()
@@ -38,15 +42,15 @@ public unsafe class UnrealMemory : IUnrealMemory
             throw new Exception("GMalloc has not been initialised yet, please report this!");
         }
 
-        FMallocVTable* vTable = (*_gMalloc)->VTable;
-        _malloc = _hooks.CreateWrapper<MallocDelegate>((long)vTable->Malloc, out _);
-        _tryMalloc = _hooks.CreateWrapper<TryMallocDelegate>((long)vTable->TryMalloc, out _);
-        _realloc = _hooks.CreateWrapper<ReallocDelegate>((long)vTable->Realloc, out _);
-        _tryRealloc = _hooks.CreateWrapper<TryReallocDelegate>((long)vTable->TryRealloc, out _);
-        _free = _hooks.CreateWrapper<FreeDelegate>((long)vTable->Free, out _);
-        _quantizeSize = _hooks.CreateWrapper<QuantizeSizeDelegate>((long)vTable->QuantizeSize, out _);
-        _getAllocationSize = _hooks.CreateWrapper<GetAllocationSizeDelegate>((long)vTable->GetAllocationSize, out _);
-        _trim = _hooks.CreateWrapper<TrimDelegate>((long)vTable->Trim, out _);
+        FMallocVtable vtable = new((*_gMalloc)->vtable, _allowExecuteCommands, _commandExecutorType);
+        _malloc = _hooks.CreateWrapper<MallocDelegate>((long)vtable.Malloc(), out _);
+        _tryMalloc = _hooks.CreateWrapper<TryMallocDelegate>((long)vtable.TryMalloc(), out _);
+        _realloc = _hooks.CreateWrapper<ReallocDelegate>((long)vtable.Realloc(), out _);
+        _tryRealloc = _hooks.CreateWrapper<TryReallocDelegate>((long)vtable.TryRealloc(), out _);
+        _free = _hooks.CreateWrapper<FreeDelegate>((long)vtable.Free(), out _);
+        _quantizeSize = _hooks.CreateWrapper<QuantizeSizeDelegate>((long)vtable.QuantizeSize(), out _);
+        _getAllocationSize = _hooks.CreateWrapper<GetAllocationSizeDelegate>((long)vtable.GetAllocationSize(), out _);
+        _trim = _hooks.CreateWrapper<TrimDelegate>((long)vtable.Trim(), out _);
     }
 
     // Wrappers for GMalloc functions
@@ -121,22 +125,7 @@ public unsafe class UnrealMemory : IUnrealMemory
     // Structure definitions
     internal struct FMalloc
     {
-        internal FMallocVTable* VTable;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct FMallocVTable
-    {
-        internal nuint __vec_del_dtor;
-        internal nuint exec;
-        internal nuint Malloc;
-        internal nuint TryMalloc;
-        internal nuint Realloc;
-        internal nuint TryRealloc;
-        internal nuint Free;
-        internal nuint QuantizeSize;
-        internal nuint GetAllocationSize;
-        internal nuint Trim;
+        internal nint vtable;
     }
 
     // Memory Delegates
@@ -162,4 +151,47 @@ public unsafe class UnrealMemory : IUnrealMemory
     //private delegate bool ValidateHeap();
     //private delegate const TCHAR* GetDescriptiveName();
 
+}
+
+internal unsafe class FMallocVtable
+{
+    private readonly nint _vtable;
+    private readonly bool _allowExecuteCommands;
+    private readonly ObjectCommandExecutorType _commandExecutorType;
+
+    internal FMallocVtable(nint vtable, bool allowExecuteCommands, ObjectCommandExecutorType commandExecutorType)
+    {
+        _vtable = vtable;
+        _allowExecuteCommands = allowExecuteCommands;
+        _commandExecutorType = commandExecutorType;
+    }
+
+    private nint GetBase()
+    {
+        var Base = _vtable + 0x10;
+        if (!_allowExecuteCommands)
+        {
+            Base += 0x8;
+        }
+        switch (_commandExecutorType)
+        {
+            case ObjectCommandExecutorType.AddDevEditor:
+                Base += 0x10;
+                break;
+            case ObjectCommandExecutorType.AddRuntime:
+                Base += 0x18;
+                break;
+        }
+        LogDebug($"{_vtable:x} -> {Base:x} ({_commandExecutorType})");
+        return Base;
+    }
+    
+    internal nuint Malloc() => *(nuint*)GetBase();
+    internal nuint TryMalloc() => *(nuint*)(GetBase() + 0x8);
+    internal nuint Realloc() => *(nuint*)(GetBase() + 0x10);
+    internal nuint TryRealloc() => *(nuint*)(GetBase() + 0x18);
+    internal nuint Free() => *(nuint*)(GetBase() + 0x20);
+    internal nuint QuantizeSize() => *(nuint*)(GetBase() + 0x28);
+    internal nuint GetAllocationSize() => *(nuint*)(GetBase() + 0x30);
+    internal nuint Trim() => *(nuint*)(GetBase() + 0x38);
 }

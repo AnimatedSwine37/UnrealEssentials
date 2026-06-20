@@ -32,6 +32,8 @@ env:
   PUBLISH_GAMEBANANA_UTOC_PATH: ./Publish/ToUpload/UTOC.Stream.Emulator/GameBanana
   PUBLISH_GITHUB_UTOC_PATH: ./Publish/ToUpload/UTOC.Stream.Emulator/Generic
   PUBLISH_NUGET_UTOC_PATH: ./Publish/ToUpload/UTOC.Stream.Emulator/NuGet
+
+  PUBLISH_UTOC_TOOL_PATH: ./Publish/ToUpload/utoc-extractor
   
   PUBLISH_INTERFACE_PATH: ./Publish/Interface
   NUGET_URL: https://api.nuget.org/v3/index.json
@@ -60,25 +62,15 @@ jobs:
         fetch-depth: 0
         submodules: 'recursive'
         
-    - name: Setup .NET Core SDK (5.0)
+    - name: Setup .NET Core SDK (5.0) # For Reloaded Publisher
       uses: actions/setup-dotnet@v1.8.2
       with:
         dotnet-version: 5.0.x
-        
-    - name: Setup .NET Core SDK (6.0)
-      uses: actions/setup-dotnet@v1.8.2
-      with:
-        dotnet-version: 6.0.x
 
-    - name: Setup .NET Core SDK (7.0)
+    - name: Setup .NET Core SDK (9.0) # For Unreal Essentials
       uses: actions/setup-dotnet@v1.8.2
       with:
-        dotnet-version: 7.0.x
-
-    - name: Setup .NET Core SDK (8.0)
-      uses: actions/setup-dotnet@v1.8.2
-      with:
-        dotnet-version: 8.0.x
+        dotnet-version: 9.0.x
 
     - name: Setup Rust
       uses: hecrj/setup-rust-action@v2.0.1
@@ -119,6 +111,15 @@ jobs:
         path: |
           ${{ env.PUBLISH_NUGET_UE_PATH }}/*
           ${{ env.PUBLISH_NUGET_UTOC_PATH }}/*
+
+    - name: Upload UTOC Extractor (Windows)
+      uses: actions/upload-artifact@v4
+      with:
+        # Artifact name
+        name: ${{ '[UTOC Extractor] Windows Release' }}
+        # A file, directory or wildcard pattern that describes what to upload
+        path: |
+          ${{ env.PUBLISH_UTOC_TOOL_PATH }}/*
         
     - name: Upload Changelog Artifact
       uses: actions/upload-artifact@v4
@@ -148,6 +149,7 @@ jobs:
         files: |
           ${{ env.PUBLISH_GITHUB_UE_PATH }}/*
           ${{ env.PUBLISH_GITHUB_UTOC_PATH }}/*
+          ${{ env.PUBLISH_UTOC_TOOL_PATH }}/*
         
     - name: Push to NuGet (on Tag)
       env: 

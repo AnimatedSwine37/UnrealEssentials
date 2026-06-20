@@ -1,244 +1,297 @@
-﻿using UTOC.Stream.Emulator.Interfaces;
+﻿using Reloaded.Mod.Interfaces;
+using riri.yamlscans;
+using UTOC.Stream.Emulator.Interfaces;
+using YamlDotNet.RepresentationModel;
 
 namespace UnrealEssentials;
-public struct Signatures
+
+public enum StartLoadingDelegateType
 {
-    internal string GetPakSigningKeys { get; set; }
-    internal string GetPakFolders { get; set; }
-    internal string GMalloc { get; set; }
-    internal string GetPakOrder { get; set; }
-    internal string PakOpenRead { get; set; }
-    internal string PakOpenAsyncRead { get; set; }
-    internal string IsNonPakFilenameAllowed { get; set; }
-    internal string FileIoStoreOpenContainer { get; set; }
-    internal string ReadBlocks { get; set; }
-    internal TocType? TocVersion { get; set; }
-    internal PakType PakVersion { get; set; }
-    internal string FileExists { get; set; }
+    NoArgs, // UE 4.25-4.27
+    AddIoBatch, // UE 5.0
+    PackageNodeArray, // UE 5.1
+    AddThreadState, // UE 5.2-5.3
+    DescAddInstancingContext, // UE 5.4-5.5
+    EnableLinkerLoadSupport, // UE 5.6
+    AsyncPackageInheritsRefCount, // UE 5.7+
+}
 
-    internal static Dictionary<string, Signatures> VersionSigs = new()
+public enum ObjectCommandExecutorType
+{
+    GlobalOnly,
+    AddDevEditor,
+    AddRuntime
+}
+
+public class Properties
+{
+    // used by UTOC Emulator 1.x
+    public TocType? TocVersion { get; set; } = null;
+    public PakType PakVersion { get; set; } = PakType.Fn64BugFix;
+    // used by UTOC Emulator 2.x
+    public EngineVersion EngineVersion { get; set; } = EngineVersion.UE_4_25;
+    public StartLoadingDelegateType StartLoadDelegate { get; set; } = StartLoadingDelegateType.NoArgs;
+    public bool AllowExecuteCommands { get; set; } = false;
+    public ObjectCommandExecutorType CommandExecutorType { get; set; } = ObjectCommandExecutorType.GlobalOnly;
+    public Signatures Signatures { get; private set; } = new();
+    
+    public Properties DeepCopy()
     {
-        {
-            "++UE4+Release-4.18", // 4.18
-            new Signatures
-            {
-                PakOpenRead = "48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 41 0F B6 E8 48 C7 44 24 ?? 00 00 00 00"
-            }
-        },
-        {
-            "++UE4+Release-4.19", // 4.19
-            new Signatures
-            {
-                PakOpenRead = "48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 41 0F B6 E8"
-            }
-        },
-        {
-            "++UE4+Release-4.20", // 4.20
-            new Signatures
-            {
+        var result = (Properties)MemberwiseClone();
+        result.TocVersion = TocVersion;
+        result.PakVersion = PakVersion;
+        result.StartLoadDelegate = StartLoadDelegate;
+        result.AllowExecuteCommands = AllowExecuteCommands;
+        result.CommandExecutorType = CommandExecutorType;
+        result.Signatures = Signatures.DeepCopy();
+        return result;
+    }
+}
 
-            }
-        },
-        {
-            "++UE4+Release-4.21", // 4.21
-            new Signatures
-            {
-                PakOpenRead = "48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ?? 48 8D 59 ??"
-            }
-        },
-        {
-            "++UE4+Release-4.22", // 4.22
-            new Signatures
-            {
+public class Signatures 
+{
+    public List<Candidate> GetPakSigningKeys { get; set; } = []; // Function call to FCoreDelegates::GetPakSigningKeysDelegate in FIoStoreTocResource::Read (short jump)
+    public List<Candidate> GetPakFolders { get; set; } = []; // FPakPlatformFile::GetPakFolders
+    public List<Candidate> GMalloc { get; set; } = []; // during initializing GMalloc. Long Jump
+    public List<Candidate> GetPakOrder { get; set; } = []; // FPakPlatformFile::GetPakOrderFromPakFilePath
+    public List<Candidate> PakOpenRead { get; set; } = []; // FPakPlatformFile::OpenRead
+    public List<Candidate> PakOpenAsyncRead { get; set; } = []; // FPakPlatformFile::OpenAsyncRead
+    public List<Candidate> IsNonPakFilenameAllowed { get; set; } = []; // FPakPlatformFile::IsNonPakFilenameAllowed
+    public List<Candidate> FileIoStoreOpenContainer { get; set; } = []; // FGenericFileIoStoreImpl::OpenContainer
+    public List<Candidate> ReadBlocks { get; set; } = []; // FFileIoStore::ReadBlocks
+    public List<Candidate> FileExists { get; set; } = []; // FPakPlatformFile::FileExists
+    public List<Candidate> FIOBatch_ReadInternal { get; set; } = [];
+    public List<Candidate> FAsyncPackage2_StartLoading { get; set; } = [];
+    public List<Candidate> GFNamePool { get; set; } = [];
 
-            }
-        },
-        {
-            "++UE4+Release-4.23", // 4.23
-            new Signatures
-            {
+    public Signatures DeepCopy()
+    {
+        var result = (Signatures)MemberwiseClone();
+        result.GetPakSigningKeys = GetPakSigningKeys.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.GetPakFolders = GetPakFolders.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.GMalloc = GMalloc.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.GetPakOrder = GetPakOrder.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.PakOpenRead = PakOpenRead.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.IsNonPakFilenameAllowed = IsNonPakFilenameAllowed.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.FileIoStoreOpenContainer = FileIoStoreOpenContainer.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.ReadBlocks = ReadBlocks.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.FAsyncPackage2_StartLoading = FAsyncPackage2_StartLoading.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.GFNamePool = GFNamePool.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        return result;
+    }
+}
 
-            }
-        },
-        {
-            "++UE4+Release-4.24", // 4.24
-            new Signatures
-            {
+public class GameRegistry
+{
+    internal static readonly string[] DistributionTypes = ["Win64", "WinGDK"];
 
-            }
-        },
+    internal static readonly string DistVersion = "<DistVersion>";
+
+    public Dictionary<string, Properties> ExecutableName { get; } = new();
+    public Dictionary<string, Properties> ExecutableNameStartsWith { get; } = new();
+    public Dictionary<string, Properties> ProductName { get; } = new();
+}
+
+public class SignaturePropertyFactory
+{
+    public Dictionary<string, Properties> EngineVersions { get; }
+    public Dictionary<string, string> FileToBranchName { get; }
+    public GameRegistry GameRegistry;
+    
+    private static string HandleScalar(string Name, YamlNode value)
+        => value.Cast<YamlScalarNode>()?.Value ?? throw new Exception($"Value for {Name} must be a string");
+
+    private static PakType HandlePakVersion(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for PakVersion must be a string");
+        return Enum.TryParse<PakType>(str, out var Value) ? Value : throw new Exception($"Value \"{str}\" is not in PakType");
+    }
+    
+    private static TocType HandleTocVersion(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for TocVersion must be a string");
+        return Enum.TryParse<TocType>(str, out var Value) ? Value : throw new Exception($"Value \"{str}\" is not in TocType");
+    }
+    
+    private static StartLoadingDelegateType HandleStartLoadDelegate(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for StartLoadDelegate must be a string");
+        return Enum.TryParse<StartLoadingDelegateType>(str, out var Value) ? Value : throw new Exception($"Value \"{str}\" is not in StartLoadingDelegateType");
+    }
+    
+    private static bool HandleAllowExecuteCommands(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for AllowExecuteCommands must be a string");
+        return str.ToLower() switch
         {
-            "++UE4+Release-4.25", // 4.25
-            new Signatures
-            {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
-                GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ??",
-                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 08 00",
-                PakOpenRead = "48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC D0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
-                PakOpenAsyncRead = "40 55 57 41 56 41 57 48 81 EC 98 00 00 00",
-                IsNonPakFilenameAllowed = "48 8B C4 55 41 55 48 8D 68 ?? 48 81 EC 98 00 00 00",
-                FileExists = "48 89 6C 24 ?? 57 48 83 EC 30 45 33 C9 45 33 C0 48 8B FA 48 8B E9 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 6C 24 ?? 48 83 C4 30 5F C3 33 C9 48 89 5C 24 ?? 48 89 74 24 ?? 8B D1 40 32 F6 48 89 4C 24 ?? 48 89 4C 24 ?? 48 85 FF 74 ?? 66 39 0F 74 ?? 48 C7 C3 FF FF FF FF 0F 1F 84 ?? 00 00 00 00 48 FF C3 66 39 0C ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 54 24 ?? 8B 4C 24 ?? 8D 04 ?? 89 44 24 ?? 3B C2 7E ?? 8B D1 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 48 8B D7 4C 63 C3 4D 03 C0 E8 ?? ?? ?? ?? 48 8D 54 24 ?? 48 8B CD E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 0F B6 D8 48 85 C9 74 ?? E8 ?? ?? ?? ?? 84 DB 48 8B 5C 24 ?? 74 ?? 48 8B 4D ?? 48 8B D7 48 8B 01 FF 50 ??",
-                TocVersion = TocType.Initial,
-                PakVersion = PakType.FrozenIndex,
-            }
-        },
+            "true" => true,
+            "false" => false,
+            _ => throw new Exception($"Value \"{str}\" is not true or false")
+        };
+    }
+    
+    private static ObjectCommandExecutorType HandleCommandExecutorType(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for CommandExecutorType must be a string");
+        return Enum.TryParse<ObjectCommandExecutorType>(str, out var Value) ? Value : throw new Exception($"Value \"{str}\" is not in CommandExecutorType");
+    }
+
+    private static void TryGetSignature(string key, Dictionary<string, List<Candidate>> signatures, Action<List<Candidate>> callback)
+    {
+        if (signatures.TryGetValue(key, out var source))
+            callback(source);
+    }
+
+    private static void SetSignatures(Properties properties, YamlNode value)
+    {
+        // Signatures is scalar if it has no children
+        if (value.NodeType == YamlNodeType.Scalar) return;
+        var sigSeq = value.Cast<YamlMappingNode>() ?? throw new Exception("Expected a sequence for signatures");
+        var model = ScanModel.FromNode(sigSeq).ToDictionary();
+        TryGetSignature("GetPakSigningKeys", model, x => properties.Signatures.GetPakSigningKeys = x);
+        TryGetSignature("GetPakFolders", model, x => properties.Signatures.GetPakFolders = x);
+        TryGetSignature("GMalloc", model, x => properties.Signatures.GMalloc = x);
+        TryGetSignature("GetPakOrder", model, x => properties.Signatures.GetPakOrder = x);
+        TryGetSignature("PakOpenRead", model, x => properties.Signatures.PakOpenRead = x);
+        TryGetSignature("PakOpenAsyncRead", model, x => properties.Signatures.PakOpenAsyncRead = x);
+        TryGetSignature("IsNonPakFilenameAllowed", model, x => properties.Signatures.IsNonPakFilenameAllowed = x);
+        TryGetSignature("FileIoStoreOpenContainer", model, x => properties.Signatures.FileIoStoreOpenContainer = x);
+        TryGetSignature("ReadBlocks", model, x => properties.Signatures.ReadBlocks = x);
+        TryGetSignature("FileExists", model, x => properties.Signatures.FileExists = x);
+        TryGetSignature("FIOBatch_ReadInternal", model, x => properties.Signatures.FIOBatch_ReadInternal = x);
+        TryGetSignature("FAsyncPackage2_StartLoading", model, x => properties.Signatures.FAsyncPackage2_StartLoading = x);
+        TryGetSignature("GFNamePool", model, x => properties.Signatures.GFNamePool = x);
+        
+    }
+    
+    // For unit testing
+    public static (string, Properties) ParseEngineYamlStatic(string filePath)
+    {
+        var Value = File.ReadAllText(filePath);
+        var reader = new YamlStream();
+        reader.Load(new StringReader(Value));
+        var root = reader.Documents[0].RootNode.Cast<YamlMappingNode>() 
+                   ?? throw new Exception("Expected a mapping at the top-level");
+        var properties = new Properties();
+        var filename = Path.GetFileNameWithoutExtension(filePath);
+        properties.EngineVersion = Enum.TryParse<EngineVersion>(filename, out var engineVersion)
+            ? engineVersion : throw new Exception($"Unrecognised engine version {filename}, must be defined in EngineVersion enum!");
+        var branchName = string.Empty;
+        foreach (var child in root.Children)
         {
-            "++UE4+Release-4.26", // 4.26
-            new Signatures
+            var key = child.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
+            switch (key)
             {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ?? 0F 84 ?? ?? ?? ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
-                GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B 01 FF 90 ?? ?? ?? ?? 84 C0",
-                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 ?? 00",
-                PakOpenRead = "4C 8B DC 55 41 55 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
-                PakOpenAsyncRead = "48 89 6C 24 ?? 56 57 41 56 48 81 EC 90 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 ?? ?? ?? ?? 48 8B EA",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
-                FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
-                FileExists = "48 89 6C 24 ?? 57 48 83 EC 30 45 33 C9 45 33 C0 48 8B FA 48 8B E9 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 6C 24 ?? 48 83 C4 30 5F C3 33 C9 48 89 5C 24 ?? 48 89 74 24 ?? 8B D1 40 32 F6 48 89 4C 24 ?? 48 89 4C 24 ?? 48 85 FF 74 ?? 66 39 0F 74 ?? 48 C7 C3 FF FF FF FF 0F 1F 84 ?? 00 00 00 00 48 FF C3 66 39 0C ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 54 24 ?? 8B 4C 24 ?? 8D 04 ?? 89 44 24 ?? 3B C2 7E ?? 8B D1 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 48 8B D7 4C 63 C3 4D 03 C0 E8 ?? ?? ?? ?? 48 8D 54 24 ?? 48 8B CD E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 0F B6 D8 48 85 C9 74 ?? E8 ?? ?? ?? ?? 84 DB 48 8B 5C 24 ?? 74 ?? 48 8B 4D ?? 48 8B D7 48 8B 01 FF 50 ??",
-                TocVersion = TocType.DirectoryIndex,
-                PakVersion = PakType.Fn64BugFix,
+                case "VersionIdentifier":
+                    branchName = HandleScalar("VersionIdentifier", child.Value);
+                    break;
+                case "PakVersion":
+                    properties.PakVersion = HandlePakVersion(child.Value);
+                    break;
+                case "TocVersion":
+                    properties.TocVersion = HandleTocVersion(child.Value);
+                    break;
+                case "StartLoadDelegate":
+                    properties.StartLoadDelegate = HandleStartLoadDelegate(child.Value);
+                    break;
+                case "AllowExecuteCommands":
+                    properties.AllowExecuteCommands = HandleAllowExecuteCommands(child.Value);
+                    break;
+                case "CommandExecutorType":
+                    properties.CommandExecutorType = HandleCommandExecutorType(child.Value);
+                    break;
+                case "Signatures":
+                    SetSignatures(properties, child.Value);
+                    break;
+                default:
+                    throw new Exception($"Unrecognised property {key}");
             }
-        },
+        }
+        return (branchName, properties);
+    }
+    
+    private void ParseEngineYaml(string filePath)
+    {
+        var (branchName, properties) = ParseEngineYamlStatic(filePath);
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        EngineVersions.Add(branchName, properties);
+        FileToBranchName.Add(fileName, branchName);
+    }
+
+    private Properties? HandleEngineVersion(YamlNode value)
+    {
+        var str = value.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Value for EngineVersion must be a string");
+        return FileToBranchName.TryGetValue(str, out var BranchName) && 
+               EngineVersions.TryGetValue(BranchName, out var props)
+            ? props.DeepCopy() : null;
+    }
+
+    private void ParseGameYaml(string filePath)
+    {
+        var Value = File.ReadAllText(filePath);
+        var reader = new YamlStream();
+        reader.Load(new StringReader(Value));
+        var root = reader.Documents[0].RootNode.Cast<YamlMappingNode>() 
+                   ?? throw new Exception("Expected a mapping at the top-level");
+        Properties? properties = null;
+        string? ExecutableName = null;
+        string? ExecutableNameStartsWith = null;
+        string? ProductName = null;
+        foreach (var child in root.Children)
         {
-            "++UE4+Release-4.27", // 4.27
-            new Signatures
+            var key = child.Key.Cast<YamlScalarNode>()?.Value ?? throw new Exception("Expected a string for the key");
+            switch (key)
             {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F8 39 70 ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
-                GMalloc = "48 89 35 ?? ?? ?? ?? EB ?? 48 8B 3D ?? ?? ?? ??",
-                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 ?? 00",
-                PakOpenRead = "4C 8B DC 55 53 57 41 54 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
-                PakOpenAsyncRead = "48 89 5C 24 ?? 55 56 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 90 00 00 00 48 8B 05 ?? ?? ?? ??",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
-                FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
-                ReadBlocks = "4C 8B DC 49 89 4B ?? 53 57 41 54",
-                FileExists = "48 89 6C 24 ?? 57 48 83 EC 30 45 33 C9 45 33 C0 48 8B FA 48 8B E9 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 6C 24 ?? 48 83 C4 30 5F C3 33 C9 48 89 5C 24 ?? 48 89 74 24 ?? 8B D1 40 32 F6 48 89 4C 24 ?? 48 89 4C 24 ?? 48 85 FF 74 ?? 66 39 0F 74 ?? 48 C7 C3 FF FF FF FF 0F 1F 84 ?? 00 00 00 00 48 FF C3 66 39 0C ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 54 24 ?? 8B 4C 24 ?? 8D 04 ?? 89 44 24 ?? 3B C2 7E ?? 8B D1 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 48 8B D7 4C 63 C3 4D 03 C0 E8 ?? ?? ?? ?? 48 8D 54 24 ?? 48 8B CD E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 0F B6 D8 48 85 C9 74 ?? E8 ?? ?? ?? ?? 84 DB 48 8B 5C 24 ?? 74 ?? 48 8B 4D ?? 48 8B D7 48 8B 01 FF 50 ??",
-                TocVersion = TocType.PartitionSize,
-                PakVersion = PakType.Fn64BugFix,
+                case "EngineVersion":
+                    properties ??= HandleEngineVersion(child.Value);
+                    break;
+                case "ExecutableName":
+                    ExecutableName ??= HandleScalar("ExecutableName", child.Value);
+                    break;
+                case "ExecutableNameStartsWith":
+                    ExecutableNameStartsWith ??= HandleScalar("ExecutableNameStartsWith", child.Value);
+                    break;
+                case "ProductName":
+                    ProductName ??= HandleScalar("ProductName", child.Value);
+                    break;
+                case "Signatures":
+                    if (properties == null)
+                        throw new Exception("EngineVersion must be declared before defining signature overrides!");
+                    SetSignatures(properties, child.Value);
+                    break;
+                default:
+                    throw new Exception($"Unrecognised property {key}");
             }
-        },
+        }
+        if (ExecutableName != null)
         {
-            "HogwartsLegacy.exe", // Hogwarts Legacy (4.27)
-            new Signatures
+            if (ExecutableName.Contains(GameRegistry.DistVersion))
             {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F8 39 70 ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
-                GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 8B C8",
-                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 ?? 00",
-                PakOpenRead = "4C 8B DC 55 53 57 41 54 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
-                PakOpenAsyncRead = "40 53 55 56 41 56 41 57 48 81 EC 90 00 00 00",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
-                FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
-                ReadBlocks = "4C 8B DC 49 89 4B ?? 53 57 41 54",
-                FileExists = "48 89 6C 24 ?? 57 48 83 EC 30 45 33 C9 45 33 C0 48 8B FA 48 8B E9 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 6C 24 ?? 48 83 C4 30 5F C3 33 C0 48 89 5C 24 ?? 48 89 74 24 ?? 8B C8 40 32 F6 48 89 44 24 ?? 48 89 44 24 ?? 48 85 FF 74 ?? 66 39 07 74 ?? 48 C7 C3 FF FF FF FF 0F 1F 84 ?? 00 00 00 00 48 FF C3 66 39 04 ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 4C 24 ?? 8B 44 24 ?? 8D 14 ?? 89 54 24 ?? 3B D1 7E ?? 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 48 8B D7 4C 63 C3 4D 03 C0 E8 ?? ?? ?? ?? 48 8D 54 24 ?? 48 8B CD E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 0F B6 D8 48 85 C9 74 ?? E8 ?? ?? ?? ?? 84 DB 48 8B 5C 24 ?? 74 ?? 48 8B 4D ?? 48 8B D7 48 8B 01 FF 50 ??",
-                TocVersion = TocType.PartitionSize,
-                PakVersion = PakType.Fn64BugFix,
+                foreach (var variant in GameRegistry.DistributionTypes.Select(x =>
+                             ExecutableName.Replace(GameRegistry.DistVersion, x)))
+                    GameRegistry.ExecutableName.Add(variant, properties!);
             }
-        },
-        {
-            "TheCallistoProtocol-Win64-Shipping.exe", // The Callisto Protocol (4.27)
-            new Signatures
+            else
             {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F8 39 70 ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
-                GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 8B C8",
-                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 ?? 00",
-                PakOpenRead = "4C 8B DC 55 53 57 41 54 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
-                PakOpenAsyncRead = "40 53 55 56 41 56 41 57 48 81 EC 90 00 00 00",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
-                FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
-                ReadBlocks = "4C 8B DC 49 89 4B ?? 53 57 41 54",
-                FileExists = "48 89 6C 24 ?? 57 48 83 EC 30 45 33 C9 45 33 C0 48 8B FA 48 8B E9 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 6C 24 ?? 48 83 C4 30 5F C3 33 C9 48 89 5C 24 ?? 48 89 74 24 ?? 8B D1 40 32 F6 48 89 4C 24 ?? 48 89 4C 24 ?? 48 85 FF 74 ?? 66 39 0F 74 ?? 48 C7 C3 FF FF FF FF 0F 1F 84 ?? 00 00 00 00 48 FF C3 66 39 0C ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 54 24 ?? 8B 4C 24 ?? 8D 04 ?? 89 44 24 ?? 3B C2 7E ?? 8B D1 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 48 8B D7 4C 63 C3 4D 03 C0 E8 ?? ?? ?? ?? 48 8D 54 24 ?? 48 8B CD E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 0F B6 D8 48 85 C9 74 ?? E8 ?? ?? ?? ?? 84 DB 48 8B 5C 24 ?? 74 ?? 48 8B 4D ?? 48 8B D7 48 8B 01 FF 50 ??",
-                TocVersion = TocType.PartitionSize,
-                PakVersion = PakType.Fn64BugFix,
+                GameRegistry.ExecutableName.Add(ExecutableName, properties!);
             }
-        },
-        {
-            "ScarletNexus-Win64-Shipping.exe", // Scarlet Nexus (Modified 4.25+)
-            new Signatures
-            {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
-                GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ??",
-                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 08 00",
-                PakOpenRead = "48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
-                PakOpenAsyncRead = "40 55 53 56 57 41 54 41 55 48 8D 6C 24 ?? 48 81 EC A8 00 00 00",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
-                FileExists = "48 89 6C 24 ?? 57 48 83 EC 30 45 33 C9 45 33 C0 48 8B FA 48 8B E9 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 6C 24 ?? 48 83 C4 30 5F C3 33 C9 48 89 5C 24 ?? 48 89 74 24 ?? 8B D1 40 32 F6 48 89 4C 24 ?? 48 89 4C 24 ?? 48 85 FF 74 ?? 66 39 0F 74 ?? 48 C7 C3 FF FF FF FF 0F 1F 84 ?? 00 00 00 00 48 FF C3 66 39 0C ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 54 24 ?? 8B 4C 24 ?? 8D 04 ?? 89 44 24 ?? 3B C2 7E ?? 8B D1 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 48 8B D7 4C 63 C3 4D 03 C0 E8 ?? ?? ?? ?? 48 8D 54 24 ?? 48 8B CD E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 0F B6 D8 48 85 C9 74 ?? E8 ?? ?? ?? ?? 84 DB 48 8B 5C 24 ?? 74 ?? 48 8B 4D ?? 48 8B D7 48 8B 01 FF 50 ??",
-                TocVersion = TocType.DirectoryIndex,
-                PakVersion = PakType.FrozenIndex,
-            }
-        },
-        {
-            "Hi-Fi-RUSH.exe", // Hi-Fi Rush (Modified 4.27) (Update 9)
-            new Signatures
-            {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F0 44 39 78 ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 8D 4C 24 ??",
-                GMalloc = "48 8B 0D ?? ?? ?? ?? 48 85 C9 75 ?? E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B 01 48 8B D3 FF 50 ?? 48 83 C4 20",
-                GetPakOrder = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 89 CF 48 8D 4C 24 ??",
-                //PakOpenRead = "4C 8B DC 55 53 57 41 54 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
-                PakOpenRead = "4C 8B DC 55 53 57 41 56 49 8D 6B ?? 48 81 EC B8 00 00 00",
-                //PakOpenAsyncRead = "48 89 5C 24 ?? 55 56 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 90 00 00 00 48 8B 05 ?? ?? ?? ??",
-                PakOpenAsyncRead = "48 89 5C 24 ?? 48 89 74 24 ?? 55 57 41 56 48 8D 6C 24 ?? 48 81 EC A0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 44 8B 05 ?? ?? ?? ??",
-                //IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 40 48 8B F9 45 33 C0",
-                ReadBlocks = "4C 8B DC 49 89 53 ?? 49 89 4B ?? 53 55",
-                FileExists = "48 89 74 24 ?? 41 56 48 83 EC 30 45 33 C9 45 33 C0 48 8B F2 4C 8B F1 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 74 24 ?? 48 83 C4 30 41 5E C3 48 89 5C 24 ?? 48 89 6C 24 ?? 40 32 ED 48 89 7C 24 ?? 33 FF 48 89 7C 24 ?? 8B C7 89 44 24 ?? 8B CF 89 4C 24 ?? 48 85 F6 74 ?? 66 39 06 74 ?? 48 C7 C3 FF FF FF FF 48 FF C3 66 39 04 ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 4C 24 ?? 8B 44 24 ?? 48 8B 7C 24 ?? 03 C3 89 44 24 ?? 3B C1 7E ?? 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 7C 24 ?? 4C 63 C3 48 8B D6 4D 03 C0 48 8B CF E8 ?? ?? ?? ?? 48 8D 54 24 ?? 49 8B CE E8 ?? ?? ?? ?? 0F B6 D8 48 85 FF 74 ?? 48 8B CF E8 ?? ?? ?? ?? 48 8B 7C 24 ?? 84 DB 48 8B 5C 24 ?? 74 ?? 49 8B 4E ?? 48 8B D6 48 8B 01 FF 90 ?? ?? ?? ??",
-                TocVersion = TocType.PartitionSize,
-                PakVersion = PakType.Fn64BugFix,
-            }
-        },
-        {
-            "Sackboy-Win64-Shipping.exe", // Sackboy: A Big Adventure (Modified 4.25)
-            new Signatures
-            {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B D8 39 78 ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
-                GMalloc = "48 89 05 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 ??",
-                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 08 00",
-                PakOpenRead ="48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 ?? 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ?? 48 8D 59 ??",
-                PakOpenAsyncRead = "40 55 53 56 57 41 54 41 55 48 8D 6C 24 ?? 48 81 EC A8 00 00 00",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
-                TocVersion = TocType.Initial,
-                PakVersion = PakType.FrozenIndex,
-            }
-        },
-        {
-            "P3R.exe", // Persona 3 Reload (Modified 4.27)
-            new Signatures
-            {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F8 39 70 ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
-                GMalloc = "48 8B 0D ?? ?? ?? ?? 48 8B 01 FF 50 ?? 33 F6", // in FEngineLoop::Tick
-                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 ?? 00",
-                PakOpenRead = "4C 8B DC 55 53 57 41 54 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
-                PakOpenAsyncRead = "40 53 55 56 41 56 41 57 48 81 EC 90 00 00 00",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
-                FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
-                FileExists = "48 89 6C 24 ?? 57 48 83 EC 30 45 33 C9 45 33 C0 48 8B FA 48 8B E9 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 6C 24 ?? 48 83 C4 30 5F C3 33 C9 48 89 5C 24 ?? 48 89 74 24 ?? 8B D1 40 32 F6 48 89 4C 24 ?? 48 89 4C 24 ?? 48 85 FF 74 ?? 66 39 0F 74 ?? 48 C7 C3 FF FF FF FF 0F 1F 84 ?? 00 00 00 00 48 FF C3 66 39 0C ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 54 24 ?? 8B 4C 24 ?? 8D 04 ?? 89 44 24 ?? 3B C2 7E ?? 8B D1 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 48 8B D7 4C 63 C3 4D 03 C0 E8 ?? ?? ?? ?? 48 8D 54 24 ?? 48 8B CD E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 0F B6 D8 48 85 C9 74 ?? E8 ?? ?? ?? ?? 84 DB 48 8B 5C 24 ?? 74 ?? 48 8B 4D ?? 48 8B D7 48 8B 01 FF 50 ??",
-                TocVersion = TocType.PartitionSize,
-                PakVersion = PakType.Fn64BugFix,
-            }
-        },
-        {
-            "SMT5V-Win64-Shipping.exe", // Shin Megami Tensei V Vengeance
-            new Signatures
-            {
-                GetPakSigningKeys = "E8 ?? ?? ?? ?? 48 8B F8 39 70 ??",
-                GetPakFolders = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 4C 89 74 24 ?? 55 48 8B EC 48 83 EC 40 48 8D 4D ??",
-                GMalloc = "48 8B 1D ?? ?? ?? ?? B9 10 00 00 00",
-                GetPakOrder = "48 89 5C 24 ?? 57 48 83 EC 40 48 8B D9 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 83 78 ?? 00",
-                PakOpenRead = "4C 8B DC 55 53 57 41 54 49 8D 6B ?? 48 81 EC B8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 66 0F 6F 05 ?? ?? ?? ??",
-                PakOpenAsyncRead = "48 89 5C 24 ?? 48 89 74 24 ?? 55 57 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC 90 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 44 8B 3D ?? ?? ?? ??",
-                IsNonPakFilenameAllowed = "48 89 5C 24 ?? 48 89 6C 24 ?? 56 57 41 56 48 83 EC 30 48 8B F1 45 33 C0",
-                FileIoStoreOpenContainer = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 49 8B F1 4D 8B F0",
-                ReadBlocks = "4C 8B DC 49 89 4B ?? 53 57 41 54",
-                FileExists = "48 89 6C 24 ?? 57 48 83 EC 30 45 33 C9 45 33 C0 48 8B FA 48 8B E9 E8 ?? ?? ?? ?? 84 C0 74 ?? B0 01 48 8B 6C 24 ?? 48 83 C4 30 5F C3 33 C9 48 89 5C 24 ?? 48 89 74 24 ?? 8B D1 40 32 F6 48 89 4C 24 ?? 48 89 4C 24 ?? 48 85 FF 74 ?? 66 39 0F 74 ?? 48 C7 C3 FF FF FF FF 0F 1F 84 ?? 00 00 00 00 48 FF C3 66 39 0C ?? 75 ?? FF C3 85 DB 7E ?? 8B D3 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 8B 54 24 ?? 8B 4C 24 ?? 8D 04 ?? 89 44 24 ?? 3B C2 7E ?? 8B D1 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 48 8B D7 4C 63 C3 4D 03 C0 E8 ?? ?? ?? ?? 48 8D 54 24 ?? 48 8B CD E8 ?? ?? ?? ?? 48 8B 4C 24 ?? 0F B6 D8 48 85 C9 74 ?? E8 ?? ?? ?? ?? 84 DB 48 8B 5C 24 ?? 74 ?? 48 8B 4D ?? 48 8B D7 48 8B 01 FF 50 ??",
-                TocVersion = TocType.PartitionSize,
-                PakVersion = PakType.Fn64BugFix,
-            }
-        },
-    };
+        }
+        if (ExecutableNameStartsWith != null)
+            GameRegistry.ExecutableNameStartsWith.Add(ExecutableNameStartsWith, properties!);
+        if (ProductName != null)
+            GameRegistry.ProductName.Add(ProductName, properties!);
+    }
+
+    public SignaturePropertyFactory(string sigDir)
+    {
+        EngineVersions = new();
+        FileToBranchName = new();
+        GameRegistry = new();
+        foreach (var engineYaml in Directory.GetFiles(Path.Combine(sigDir, "Engine"), "*.yaml",
+                     SearchOption.TopDirectoryOnly))
+            ParseEngineYaml(engineYaml);
+        foreach (var gameYaml in Directory.GetFiles(Path.Combine(sigDir, "Game"), "*.yaml",
+                     SearchOption.TopDirectoryOnly))
+            ParseGameYaml(gameYaml);
+    }
 }
