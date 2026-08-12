@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreal Essentials/UTOC Emulator 2.0.2
+@rirurin ( + testing from @WisteriaSp ) :
+- Added signatures for [Life is Strange: True Colors](https://store.steampowered.com/app/936790/Life_is_Strange_True_Colors/) (4.25, in `LisTrueColors.yaml`)
+
 ## Unreal Essentials/UTOC Emulator 2.0.1
 @rirurin :
 - Treat OS file paths as case-insensitive to align with IO Store's case insensitivity, and to fix a bug where file paths would not replace if the capitalization was different
