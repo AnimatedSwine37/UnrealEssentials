@@ -1,0 +1,7 @@
+# Life is Strange: Reunion
+EngineVersion: "UE_5_5"
+ExecutableName: "Iris-<DistVersion>-Shipping"
+Signatures:
+  GetPakOrder:
+    signatures: "E8 ?? ?? ?? ?? 48 8D 15 ?? ?? ?? ?? 44 8B E0 48 8D 4D ?? E8 ?? ?? ?? ?? 83 7B ?? 00"
+    transforms: GetIndirectAddressShort

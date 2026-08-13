@@ -2,7 +2,10 @@
 
 ## Unreal Essentials/UTOC Emulator 2.0.2
 @rirurin ( + testing from @WisteriaSp ) :
-- Added signatures for [Life is Strange: True Colors](https://store.steampowered.com/app/936790/Life_is_Strange_True_Colors/) (4.25, in `LisTrueColors.yaml`)
+- Added signatures for the following games:
+  - [Life is Strange: True Colors](https://store.steampowered.com/app/936790/Life_is_Strange_True_Colors/) (4.25, in `LisTrueColors.yaml`)
+  - [Life is Strange: Reunion](https://store.steampowered.com/app/2624870/Life_is_Strange_Reunion/) (5.5, in `LisReunion.yaml`)
+
 
 ## Unreal Essentials/UTOC Emulator 2.0.1
 @rirurin :
