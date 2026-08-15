@@ -6,7 +6,7 @@ A mod for [Reloaded-II](https://reloaded-project.github.io/Reloaded-II/) that ma
 - Loading loose files from UTOCs and PAKs
 - Removing signature checks so any file can be used
 - Logging file access
-- Support for UE 4.25-4.27 and UE 5 (see [Supported Games](#supported-games) for more details)
+- Support for UE 4.25-4.27, UE 5 and some older UE4 versions (see [Supported Games](#supported-games) for more details)
 - API for adding file replacements from code (see [documentation](/UnrealEssentials.Interfaces/README.md))
 - Tool for unpacking IO Store archives with asset metadata (see [Using the UTOC Extractor](#using-the-utoc-extractor))
 
@@ -21,8 +21,13 @@ If you know of a game that doesn't work you can create an [issue](https://github
 
 | Game       | UE Version | Support      |
 |------------|-|------------|
+| [Beast of Reincarnation](https://store.steampowered.com/app/2001760/Beast_of_Reincarnation/) | 5.4 |
+| [Breathedge](https://store.steampowered.com/app/738520/Breathedge/) | 4.27 |
 | [Clair Obscur: Expedition 33](https://store.steampowered.com/app/1903340/Clair_Obscur_Expedition_33/) | 5.4 |
 | [CRISIS CORE -FINAL FANTASY VII- REUNION](https://store.steampowered.com/app/1608070/CRISIS_CORE_FINAL_FANTASY_VII_REUNION/) | 4.27 |
+| [CRYMACHINA](https://store.steampowered.com/app/2258500/CRYMACHINA/) | 4.27 | Need to use ASI Loader
+| [DAMON and BABY](https://store.steampowered.com/app/3557460/DAMON_and_BABY/) | 5.4 | Need to use ASI Loader or remove DRM with [Steamless](https://github.com/atom0s/Steamless/)
+| [Denshattack!](https://store.steampowered.com/app/2524850/Denshattack/) | 5.6 | 
 | [DRAGON BALL: Sparking! ZERO](https://store.steampowered.com/app/1790600/DRAGON_BALL_Sparking_ZERO/) | 5.1 |
 | [Hi-Fi Rush](https://store.steampowered.com/app/1817230/HiFi_RUSH/)       | 4.27 | Requires [hibiki-bootstrap](https://github.com/akmubi/hibiki-bootstrap) |
 | [Hogwarts Legacy](https://store.steampowered.com/app/990080/Hogwarts_Legacy/) | 4.27 |
@@ -37,6 +42,7 @@ If you know of a game that doesn't work you can create an [issue](https://github
 | [Master Detective Archives RAIN CODE](https://store.steampowered.com/app/2903950/Master_Detective_Archives_RAIN_CODE_Plus/) | 4.27 | Need to use ASI Loader or remove DRM with [Steamless](https://github.com/atom0s/Steamless/)
 | [Nobody Wants to Die](https://store.steampowered.com/app/1939970/Nobody_Wants_to_Die/) | 5.3 |
 | [Outside the Blocks](https://store.steampowered.com/app/2350220/Outside_the_Blocks/) | 5.4 |
+| [Palworld](https://store.steampowered.com/app/1623730/Palworld/) | 5.1 | 
 | [Persona 3 Reload](https://store.steampowered.com/app/2161700/Persona_3_Reload/) | 4.27 | Use [Persona 3 Reload Essentials](https://gamebanana.com/mods/494020) for game specific features
 | [ROMEO IS A DEAD MAN](https://store.steampowered.com/app/3050900/ROMEO_IS_A_DEAD_MAN/) | 5.6 | Need to use ASI Loader or remove DRM with [Steamless](https://github.com/atom0s/Steamless/)
 | [Rune Factory: Guardians of Azuma](https://store.steampowered.com/app/2864560/Rune_Factory_Guardians_of_Azuma/) | 5.4 |
@@ -47,7 +53,10 @@ If you know of a game that doesn't work you can create an [issue](https://github
 | [Spirit City: Lofi Sessions](https://store.steampowered.com/app/2113850/Spirit_City_Lofi_Sessions/) | 5.7 |
 | [Subnautica 2](https://store.steampowered.com/app/1962700/Subnautica_2/) | 5.6 |
 | [The Adventures of Elliot: The Millennium Tales](https://store.steampowered.com/app/3483510/The_Adventures_of_Elliot_The_Millennium_Tales/) | 5.6 |
+| [The Caligula Effect 2](https://store.steampowered.com/app/1933740/The_Caligula_Effect_2/) | 4.24 | Need to use ASI Loader for the game to retrieve save files properly
 | [The Callisto Protocol](https://store.steampowered.com/app/1544020/The_Callisto_Protocol/) | 4.27 | Need to use ASI Loader or remove DRM with [Steamless](https://github.com/atom0s/Steamless/) |
+| [The Entropy Center](https://store.steampowered.com/app/1730590/The_Entropy_Centre/) | 4.27 | 
+| [The Outer Worlds: Spacer's Choice Edition](https://store.steampowered.com/app/1920490/The_Outer_Worlds_Spacers_Choice_Edition/) | 4.27 |
 
 ## Usage
 First you'll need to create a Reloaded mod and set Unreal Esentials as a dependency of it. For more details on making a mod check out Reloaded's [documentation](https://reloaded-project.github.io/Reloaded-II/CreatingMods/).

@@ -1,0 +1,7 @@
+# Palworld
+EngineVersion: "UE_5_1"
+ExecutableName: "Palworld-<DistVersion>-Shipping"
+Signatures:
+  GFNamePool: 
+    signatures: "48 8D 0D ?? ?? ?? ?? 8B FA 75 ??" # from FNameEntryId::FromValidEName 
+    transforms: GetIndirectAddressLong

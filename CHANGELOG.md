@@ -1,11 +1,24 @@
 # Changelog
 
 ## Unreal Essentials/UTOC Emulator 2.0.2
-@rirurin ( + testing from @WisteriaSp ) :
-- Added signatures for the following games:
-  - [Life is Strange: True Colors](https://store.steampowered.com/app/936790/Life_is_Strange_True_Colors/) (4.25, in `LisTrueColors.yaml`)
-  - [Life is Strange: Reunion](https://store.steampowered.com/app/2624870/Life_is_Strange_Reunion/) (5.5, in `LisReunion.yaml`)
+@rirurin:
 
+- Added additional signature candidates for UE 4.27
+
+- Added signatures for the following games:
+  - [Beast of Reincarnation](https://store.steampowered.com/app/2001760/Beast_of_Reincarnation/) (5.4, in `BeastOfReincarnation.yaml`) (testing by @godofknife)
+  - [DAMON and BABY](https://store.steampowered.com/app/3557460/DAMON_and_BABY/) (5.4, in `DamonAndBaby.yaml`) (testing by @godofknife)
+  - [Life is Strange: True Colors](https://store.steampowered.com/app/936790/Life_is_Strange_True_Colors/) (4.25, in `LisTrueColors.yaml`) (testing by @WisteriaSp)
+  - [Life is Strange: Reunion](https://store.steampowered.com/app/2624870/Life_is_Strange_Reunion/) (5.5, in `LisReunion.yaml`) (testing by @WisteriaSp)
+  - [Palworld](https://store.steampowered.com/app/1623730/Palworld/) (5.1, in `Palworld.yaml`) (testing by @raycopper)
+  - [The Caligula Effect 2](https://store.steampowered.com/app/1933740/The_Caligula_Effect_2/) (4.24, using engine singatures) (testing by @raycopper)
+
+- Validated support for the following games:  
+  - [Breathedge](https://store.steampowered.com/app/738520/Breathedge/) (4.27) (testing by @raycopper)
+  - [CRYMACHINA](https://store.steampowered.com/app/2258500/CRYMACHINA/) (4.27) (testing by @raycopper)
+  - [Denshattack!](https://store.steampowered.com/app/2524850/Denshattack/) (5.6) (testing by @raycopper)
+  - [The Entropy Centre](https://store.steampowered.com/app/1730590/The_Entropy_Centre/) (4.27) (testing by @raycopper)
+  - [The Outer Worlds: Spacer's Choice Edition](https://store.steampowered.com/app/1920490/The_Outer_Worlds_Spacers_Choice_Edition/) (4.27) (testing by @raycopper)
 
 ## Unreal Essentials/UTOC Emulator 2.0.1
 @rirurin :

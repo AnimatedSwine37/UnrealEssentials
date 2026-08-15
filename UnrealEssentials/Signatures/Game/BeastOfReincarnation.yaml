@@ -1,0 +1,7 @@
+# Beast of Reincarnation
+EngineVersion: "UE_5_4"
+ExecutableName: "BeastOfReincarnation-<DistVersion>-Shipping"
+Signatures:
+  GetPakSigningKeys: 
+    signatures: "E8 ?? ?? ?? ?? 48 8B F8 44 39 70 ?? 0F 84 ?? ?? ?? ??"
+    transforms: GetIndirectAddressShort
