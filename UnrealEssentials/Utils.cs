@@ -149,6 +149,9 @@ internal class MultiSignature
         
         foreach (var Candidate in Candidates)
         {
+            // Using YAML scans default DISABLED property will cause it to default to the engine signature instead
+            // of actually disabling it
+            if (Candidate.Signature == "DISABLED_PROPAGATE") break;
             Utils._startupScanner.AddMainModuleScan(Candidate.Signature, result =>
             {
                 lock (Lock) { ScansCompleted++; }

@@ -140,6 +140,13 @@ internal static class ContextBuilder
         props = new();
         // Try and find based on file name
         if (factory.GameRegistry.ExecutableName.TryGetValue(fileName, out props)) return true;
+        var nameStartsWith = factory.GameRegistry.ExecutableNameStartsWith.Where(
+            x => fileName.StartsWith(x.Key));
+        if (nameStartsWith.Any())
+        {
+            props = nameStartsWith.First().Value;
+            return true;
+        }
         // Dynamically load DLL needed for methods to get executable resource metadata from
         var winVerDll = Imports.LoadLibraryA("Api-ms-win-core-version-l1-1-0.dll");
         if (winVerDll != nint.Zero && GetFileVersionInfo(winVerDll, mainModule, out var infoBuffer))
