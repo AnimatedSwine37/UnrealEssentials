@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreal Essentials/UTOC Emulator 2.0.3
+@rirurin:
+
+- Added tutorial for locating functions to add game support in `ADDING_GAME_SUPPORT.MD`
+- Fixed support for Sonic Racing: CrossWorlds
+
 ## Unreal Essentials/UTOC Emulator 2.0.2
 @rirurin:
 
