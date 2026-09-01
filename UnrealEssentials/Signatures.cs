@@ -1,5 +1,4 @@
-﻿using Reloaded.Mod.Interfaces;
-using riri.yamlscans;
+﻿using riri.yamlscans;
 using UTOC.Stream.Emulator.Interfaces;
 using YamlDotNet.RepresentationModel;
 
@@ -63,6 +62,7 @@ public class Signatures
     public List<Candidate> FIOBatch_ReadInternal { get; set; } = [];
     public List<Candidate> FAsyncPackage2_StartLoading { get; set; } = [];
     public List<Candidate> GFNamePool { get; set; } = [];
+    public List<Candidate> FNamePool_Store { get; set; } = [];
 
     public Signatures DeepCopy()
     {
@@ -77,6 +77,7 @@ public class Signatures
         result.ReadBlocks = ReadBlocks.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
         result.FAsyncPackage2_StartLoading = FAsyncPackage2_StartLoading.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
         result.GFNamePool = GFNamePool.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
+        result.FNamePool_Store = FNamePool_Store.Select(x => new Candidate(x.Signature, x.Transformer)).ToList();
         return result;
     }
 }
@@ -161,6 +162,7 @@ public class SignaturePropertyFactory
         TryGetSignature("FIOBatch_ReadInternal", model, x => properties.Signatures.FIOBatch_ReadInternal = x);
         TryGetSignature("FAsyncPackage2_StartLoading", model, x => properties.Signatures.FAsyncPackage2_StartLoading = x);
         TryGetSignature("GFNamePool", model, x => properties.Signatures.GFNamePool = x);
+        TryGetSignature("FNamePool_Store", model, x => properties.Signatures.FNamePool_Store = x);
         
     }
     

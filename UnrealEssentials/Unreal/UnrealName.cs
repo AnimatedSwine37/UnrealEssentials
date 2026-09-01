@@ -10,7 +10,21 @@ using static Utils;
 
 internal static class UnrealName
 {
+
+    private unsafe delegate int FNamePool_Store(FNamePool* self, nint a2, nint a3);
+
+    private static unsafe int FNamePool_StoreImpl(FNamePool* self, nint a2, nint a3)
+    {
+        if (FName.GFNamePool == null)
+        {
+            Log($"FNamePool::Store: Got GFNamePool: 0x{(nint)self:x}");
+        }
+        FName.GFNamePool = self;
+        return _FNamePool_Store!.Hook!.OriginalFunction(self, a2, a3);
+    }
+    
     private static MultiSignature GFNamePoolSignature;
+    private static MultiHook<FNamePool_Store>? _FNamePool_Store;
     
     [StructLayout(LayoutKind.Explicit, Size = 0x10)]
     public struct FNamePool
@@ -21,6 +35,7 @@ internal static class UnrealName
         public static unsafe void Initialize(IReloadedHooks _hooks, Signatures sigs)
         {
             GFNamePoolSignature = new("GFNamePool", sigs.GFNamePool, address => FName.GFNamePool = (FNamePool*)address);
+            _FNamePool_Store = new("FNamePool::Store", sigs.FNamePool_Store, FNamePool_StoreImpl);
         }
     }
     

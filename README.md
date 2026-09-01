@@ -17,7 +17,7 @@ A mod for [Reloaded-II](https://reloaded-project.github.io/Reloaded-II/) that ma
 ## Supported Games
 Below is a list of games that are known to work with Unreal Essentials. Just because a game isn't on the list doesn't mean it doesn't work, generally UE 4 games from 4.25-4.27 and UE 5 games from 5.0-5.7 will work.
 
-If you know of a game that doesn't work you can create an [issue](https://github.com/AnimatedSwine37/UnrealEssentials/issues) and support might be added for it.
+If you know of a game that doesn't work you can either create an [issue](https://github.com/AnimatedSwine37/UnrealEssentials/issues) or if you're familiar with software reverse engineering, you can [add support for the game](ADDING_GAME_SUPPORT.MD) and create a [pull request](https://github.com/AnimatedSwine37/UnrealEssentials/pulls) for it.
 
 | Game       | UE Version | Support      |
 |------------|-|------------|
